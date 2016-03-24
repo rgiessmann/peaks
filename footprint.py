@@ -36,8 +36,11 @@ class Trace:
         return repr({"file_name" : self.file_name, "dye_color" : self.dye_color, "Ltot_concentration" : self.Ltot_concentration})
 
 class Peak:
-    def __init__(self):
+    def __init__(self, peak_height):
+        self.peak_height = peak_height
         return
+    def PeakHeight(self):
+        return self.peak_height
     def __repr__(self):
         return
     
@@ -68,8 +71,19 @@ def get_data(parameters):
 
     return trace_list, peak_list
 
+def cluster_peaks(peak_list):
+    for peak in peak_list:
+        peak.cluster = 1
+    return 
+
 def calculate_deviance_for_all_peaks(from_bp, to_bp, trace, ref):
-    deviance_for_all_peaks = 1
+    deviance_for_all_peaks = 0        
+    for peak_cluster in set([peak.cluster for peak in peak_list]):
+        trace_peak = [peak for peak in trace if peak.cluster == peak_cluster]
+        ref_peak = [peak for peak in ref if peak.cluster == peak_cluster]
+        if trace_peak and ref_peak:
+            deviance_for_all_peaks += ref_peak.PeakHeight() - trace_peak.PeakHeight()
+    #deviance_for_all_peaks = 1
     return deviance_for_all_peaks
 
 def determine_factor_numerically(ref, trace):
