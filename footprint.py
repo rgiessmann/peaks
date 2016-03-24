@@ -48,13 +48,14 @@ def main(argv=""):
 
 
 class Trace:
-    def __init__(self, file_name, dye_color, Ltot_conc):
+    def __init__(self, file_name, dye_color, Ltot_conc, peaks=[]):
         self.file_name = file_name
         self.dye_color = dye_color
         self.Ltot_conc = Ltot_conc
+        self.peaks = peaks
         return
     def __repr__(self):
-        return repr({"file_name" : self.file_name, "dye_color" : self.dye_color, "Ltot_conc" : self.Ltot_conc})
+        return repr({"file_name" : self.file_name, "dye_color" : self.dye_color, "Ltot_conc" : self.Ltot_conc, "peaks" : self.peaks})
 
 class Peak:
     def __init__(self, peak_height):
@@ -86,32 +87,34 @@ def get_data(parameters=None):
     ## DEBUG    
     #print(trace_list)
     
-    
     peak_list = [
     Peak(10),
     Peak(20),    
     ]
+
+    for i in range(len(trace_list)):
+        trace_list[i].peaks.extend(peak_list)
     
     ## DEBUG
     #print(peak_list)
 
-    return trace_list, peak_list
+    return trace_list, None
 
-def cluster_peaks(peak_list):
+def cluster_peaks(trace):
     i = 1
-    for peak in peak_list:
+    for peak in trace.peaks:
         peak.cluster = i
         i += 1
     return 
 
 def calculate_deviance_for_all_peaks(trace, ref, from_bp=20, to_bp=130):
     deviance_for_all_peaks = 0        
-    for peak_cluster in set([peak.cluster for peak in ref]):
+    for peak_cluster in set([peak.cluster for peak in ref.peaks]):
         ## DEBUG
         #print(peak_cluster)
 
-        trace_peak = [peak for peak in trace if peak.cluster == peak_cluster]
-        ref_peak = [peak for peak in ref if peak.cluster == peak_cluster]
+        trace_peak = [peak for peak in trace.peaks if peak.cluster == peak_cluster]
+        ref_peak = [peak for peak in ref.peaks if peak.cluster == peak_cluster]
         if len(trace_peak)==1 and len(ref_peak)==1:
             deviance_for_all_peaks += ref_peak[0].peak_height - trace_peak[0].peak_height
         else:
