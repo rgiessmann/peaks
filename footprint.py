@@ -1,41 +1,76 @@
 #!/usr/bin/env python
 #asdf
-import logging                                
-import sys                                
-import getopt                                
+import logging
+import sys
+import getopt
 
-def main(argv=""):   
-  try:
-    opts, remaining_args = getopt.getopt(argv,"dhia:gf:o:k",["help","iterate","iterate-from=","iterate-to=","iter-step=","align-to=","down-pose","both-poses","generate-all-dummies","generate-dummies-from=","generate-dummies-to=","finegrain-step=","keep-dummies","dna-leading-strand=","dna-lagging-strand=","dna-leading-start=","dna-lagging-start=","bp-counting-parallel","minor-groove-offset=","output-prefix="])
-  except getopt.GetoptError:
-    print 'You provided unusual arguments. Call me with -h to learn more.'
-    sys.exit(2)
-  for opt, arg in opts:
-    if opt in ('-h', '--help'):
+def main(argv=""):
+    config_file = None
+    try:
+        opts, remaining_args = getopt.getopt(argv,"hc:i:",["help","config-file=","input-file="])
+    except getopt.GetoptError:
+       print('You provided unusual arguments. Call me with -h to learn more.')
+       sys.exit(2)
+    for opt, arg in opts:
+       if opt in ('-h', '--help'):
+           ## TODO
+           print("...help")
+       if opt in ('-c','--config-file'):
+           config_file = arg
+       if opt in ('-i','-input-file'):
+           input_file = arg
+    input_file += remaining_args
+    ## TODO: check input_files; split   
 ...
+
 return
 
 
-## data structure
+class Trace:
+    def __init__(self, file_name, dye_color, Ltot_concentration):
+        self.file_name = file_name
+        self.dye_color = dye_color
+        self.Ltot_concentration = Ltot_concentration
+        return
+    def __repr__(self):
+        return repr({"file_name" : self.file_name, "dye_color" : self.dye_color, "Ltot_concentration" : self.Ltot_concentration})
 
-trace_list = ...
-peak_list = ...
-
-def get_data(parameter):
+class Peak:
+    def __init__(self):
+        return
+    def __repr__(self):
+        return
     
-return
 
-def calculate_deviance_for_all_peaks(from, to, trace, ref):
-    ...
+def get_data(parameters):
+    ## WARNING : this is a non-functional skeleton function
+
+    ## TODO: read in the data from config and input files
+
+    ## 1. create minimal data objects with classes
+    trace_list = [
+    Trace(file_name = "01-18-16-11-27 AM.fsa", dye_color = "B", Ltot_conc = 0),
+    Trace(file_name = "01-18-16-35-11 AM.fsa", dye_color = "B", Ltot_conc = 5),
+    ]
+    
+    peak_list = [
+    Peak(),
+    Peak(),    
+    ]
+return trace_list, peak_list
+
+def calculate_deviance_for_all_peaks(from_bp, to_bp, trace, ref):
+    deviance_for_all_peaks = 1
 return deviance_for_all_peaks
 
-def determine_factor_numerically(ref, trace, ):
+def determine_factor_numerically(ref, trace):
     # Robert's approach
+    optimal_factor = 1
 return optimal_factor
 
 def determine_factor_single_peak():
-    
-return
+    optimal_factor=1
+return optimal_factor
 
 
 def correct_peaks_with_factor(trace, factor):
