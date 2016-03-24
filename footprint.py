@@ -1,6 +1,5 @@
 #!/usr/bin/env python
 
-
 import logging
 import sys
 import getopt
@@ -46,6 +45,12 @@ class Peak:
 def get_data(parameters):
     ## WARNING : this is a non-functional skeleton function
 
+    #read csv (?) file
+    #if color blue and if peak size between ... and ..., copy size, name and area to peak_list
+
+    #trace_list = ... #contains factor for each trace, footprint peaks, fractional occupancies, ligand and receptor concentrations, kd values
+    #peak_list = ... #contains Peaks and areas, new calculated areas
+
     ## TODO: read in the data from config and input files
     ## trace_list = ... #contains factor for each trace, footprint peaks, fractional occupancies, ligand and receptor concentrations, kd values
     ## peak_list = ... #contains Peaks and areas, new calculated areas
@@ -69,7 +74,6 @@ def calculate_deviance_for_all_peaks(from_bp, to_bp, trace, ref):
 
 def determine_factor_numerically(ref, trace):
     # Robert's approach
-
     #define reference
     #loop1 begin
      #for each trace
