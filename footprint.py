@@ -18,12 +18,12 @@ return
 
 ## data structure
 
-trace_list = ...
-peak_list = ...
+trace_list = ... #contains factor for each trace, footprint peaks, fractional occupancies, ligand and receptor concentrations, kd values
+peak_list = ... #contains Peaks and areas, new calculated areas
 
 def get_data(parameter):
     #read csv (?) file
-    #if color blue, copy size, name and area to trace_list
+    #if color blue and if peak size between ... and ..., copy size, name and area to peak_list
 return
 
 def calculate_deviance_for_all_peaks(from, to, trace, ref):
@@ -62,11 +62,17 @@ return
 
 
 def correct_peaks_with_factor(trace, factor):
-    
+    #read and append peak_list
+    #multiply area of each peak for all traces with right factor from trace_list 
+    #add new area to peak_list
 return
 
 def which_peaks_differ(threshold=0.10):
-    ...
+    #begin loop
+      #for each peak 
+      #compare peak areas of traces with different concentration
+      #if difference >0.1 add peak to trace list
+    #end loop
 return peak_list
 
 def calculate_fractional_occupancies(peak_list):
