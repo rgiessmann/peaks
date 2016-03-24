@@ -4,10 +4,22 @@ import logging
 import sys
 import getopt
 
+   
+
 def main(argv=""):
+
+    ## standard settings
     config_file = None
+    input_file = None
+    peak_list = None
+    trace_list = None 
+
+        
+    ## argument / start option recognition
     try:
         opts, remaining_args = getopt.getopt(argv,"hc:i:",["help","config-file=","input-file="])
+        ## DEBUG: 
+        # print(opts,remaining_args)
     except getopt.GetoptError:
        print('You provided unusual arguments. Call me with -h to learn more.')
        sys.exit(2)
@@ -19,33 +31,40 @@ def main(argv=""):
            config_file = arg
        if opt in ('-i','-input-file'):
            input_file = arg
-    input_file += remaining_args
+    if remaining_args != []:
+        print("You provided too many options. Call me with -h to learn more.")
 
     ## TODO: check input_files; split   
+
+    ## WARNING: this is step-wise implementing and testing the whole script
+    trace_list, peak_list = get_data(None)
+    cluster_peaks(peak_list)
+    print(calculate_deviance_for_all_peaks(peak_list, peak_list))
+
+    ## DEBUG
+    #print([peak.cluster for peak in peak_list])
 
     return
 
 
 class Trace:
-    def __init__(self, file_name, dye_color, Ltot_concentration):
+    def __init__(self, file_name, dye_color, Ltot_conc):
         self.file_name = file_name
         self.dye_color = dye_color
-        self.Ltot_concentration = Ltot_concentration
+        self.Ltot_conc = Ltot_conc
         return
     def __repr__(self):
-        return repr({"file_name" : self.file_name, "dye_color" : self.dye_color, "Ltot_concentration" : self.Ltot_concentration})
+        return repr({"file_name" : self.file_name, "dye_color" : self.dye_color, "Ltot_conc" : self.Ltot_conc})
 
 class Peak:
     def __init__(self, peak_height):
         self.peak_height = peak_height
         return
-    def PeakHeight(self):
-        return self.peak_height
     def __repr__(self):
-        return
+        return repr({"peak_height" : self.peak_height})
     
 
-def get_data(parameters):
+def get_data(parameters=None):
     ## WARNING : this is a non-functional skeleton function
 
     #read csv (?) file
@@ -64,26 +83,43 @@ def get_data(parameters):
     Trace(file_name = "01-18-16-35-11 AM.fsa", dye_color = "B", Ltot_conc = 5),
     ]
     
+    ## DEBUG    
+    #print(trace_list)
+    
+    
     peak_list = [
-    Peak(),
-    Peak(),    
+    Peak(10),
+    Peak(20),    
     ]
+    
+    ## DEBUG
+    #print(peak_list)
 
     return trace_list, peak_list
 
 def cluster_peaks(peak_list):
+    i = 1
     for peak in peak_list:
-        peak.cluster = 1
+        peak.cluster = i
+        i += 1
     return 
 
-def calculate_deviance_for_all_peaks(from_bp, to_bp, trace, ref):
+def calculate_deviance_for_all_peaks(trace, ref, from_bp=20, to_bp=130):
     deviance_for_all_peaks = 0        
-    for peak_cluster in set([peak.cluster for peak in peak_list]):
+    for peak_cluster in set([peak.cluster for peak in ref]):
+        ## DEBUG
+        #print(peak_cluster)
+
         trace_peak = [peak for peak in trace if peak.cluster == peak_cluster]
         ref_peak = [peak for peak in ref if peak.cluster == peak_cluster]
-        if trace_peak and ref_peak:
-            deviance_for_all_peaks += ref_peak.PeakHeight() - trace_peak.PeakHeight()
+        if len(trace_peak)==1 and len(ref_peak)==1:
+            deviance_for_all_peaks += ref_peak[0].peak_height - trace_peak[0].peak_height
+        else:
+            ## WARNING
+            print("WARNING!")
+
     #deviance_for_all_peaks = 1
+
     return deviance_for_all_peaks
 
 def determine_factor_numerically(ref, trace):
@@ -153,3 +189,6 @@ def plot_data():
     print("")
     return plots
 
+
+if __name__ == "__main__":
+  main(sys.argv[1:])
