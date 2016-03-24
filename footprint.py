@@ -123,6 +123,7 @@ def which_peaks_differ(threshold=0.10):
     return peak_list
 
 def calculate_fractional_occupancies(peak_list):
+    #
     print("")
     return fractional_occupancies
 
