@@ -22,7 +22,8 @@ trace_list = ...
 peak_list = ...
 
 def get_data(parameter):
-    
+    #read csv (?) file
+    #if color blue, copy size, name and area to trace_list
 return
 
 def calculate_deviance_for_all_peaks(from, to, trace, ref):
@@ -31,15 +32,37 @@ return deviance_for_all_peaks
 
 def determine_factor_numerically(ref, trace, ):
     # Robert's approach
-return optimal_factor
+    #define reference
+    #loop1 begin
+     #for each trace
+     #loop2 begin
+       #use factors 0 to 3.5 in 0.01 steps , calculate new peak areas from peak areas
+       #use calculate_deviance_for_all_peaks with trace and ref
+       #list deviance_new (including factor)
+       #compare deviance_new with deviance_old, if better deviance_new -> deviance_old, else delete deviance_new
+     #end loop2
+     #put factor from deviance_old to trace_list (for right trace)
+    #end loop1
+  return optimal_factor
 
 def determine_factor_single_peak():
-    
+    #define reference
+        #loop1 begin
+     #for each trace
+     #loop2 begin
+       #calculate factor for each Peak to bring to size of reference peak
+       #calculate new areas for every peak with factor 
+       #calculate deviance between each peak and reference
+       #list deviance_new (including factor)
+       #compare deviance_new with deviance_old, if better deviance_new -> deviance_old, else delete deviance_new
+     #end loop2
+     #put factor from deviance_old to trace_list (for right trace)
+    #end loop1
 return
 
 
 def correct_peaks_with_factor(trace, factor):
-    ...
+    
 return
 
 def which_peaks_differ(threshold=0.10):
