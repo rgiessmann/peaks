@@ -41,7 +41,8 @@ def main(argv=""):
     ## WARNING: this is step-wise implementing and testing the whole script
     trace_list, peak_list = get_data(None)
     cluster_peaks(trace_list)
-    print(calculate_deviance_for_all_peaks(trace_list[0], trace_list[1]))
+    print("uncorrected RMSD of peaks: "+str(calculate_deviance_for_all_peaks(trace_list[0], trace_list[1])))
+    print(determine_factor_numerically(trace_list[0], trace_list[1]))
 
     ## DEBUG
     #print([peak.cluster for peak in peak_list])
@@ -90,9 +91,9 @@ def get_data(parameters=None):
     Peak(30)
     ]),
     Trace(file_name = "01-18-16-35-11 AM.fsa", dye_color = "B", Ltot_conc = 5, peaks=[
-    Peak(11),
-    Peak(21),
-    Peak(29)    
+    Peak(20),
+    Peak(40),
+    Peak(60)    
     ]),
     ]
     
@@ -136,20 +137,54 @@ def calculate_deviance_for_all_peaks(trace, ref, from_bp=20, to_bp=130):
     return rmsd
 
 def determine_factor_numerically(ref, trace):
+    ## TODO: implement real optimizer via scipy.optimize()    
+    
+    optimal_factor = 1
+    rmsd_old = calculate_deviance_for_all_peaks(trace,ref)
+    for peak in trace.peaks:
+        peak.peak_height_original = peak.peak_height
+
+
     # Robert's approach
     #define reference
+    ## -> already defined by function call
+
     #loop1 begin
      #for each trace
+    ## -> actually, we will loop only through this given set of two traces, the other looping is done in the parent function
+
      #loop2 begin
        #use factors 0 to 3.5 in 0.01 steps , calculate new peak areas from peak areas
-       #use calculate_deviance_for_all_peaks with trace and ref
-       #list deviance_new (including factor)
-       #compare deviance_new with deviance_old, if better deviance_new -> deviance_old, else delete deviance_new
-     #end loop2
-     #put factor from deviance_old to trace_list (for right trace)
-    #end loop1
+    for factor in numpy.arange(0,3.5,0.01):
 
-    optimal_factor = 1
+        for peak in trace.peaks:
+            peak.peak_height = factor * peak.peak_height_original
+            
+        #use calculate_deviance_for_all_peaks with trace and ref
+        rmsd_new = calculate_deviance_for_all_peaks(trace,ref)
+        
+        ## DEBUG        
+        #list deviance_new (including factor)
+        print(str(factor)+" : "+str(rmsd_new))
+
+        #compare deviance_new with deviance_old, if better deviance_new -> deviance_old, else delete deviance_new
+
+        if rmsd_new < rmsd_old:
+            rmsd_old = rmsd_new
+            optimal_factor = factor
+            
+            ##DEBUG
+            #print("new best")
+
+        #end loop2
+        #put factor from deviance_old to trace_list (for right trace)
+        ## -> this factor is simply returned, let parent function decide what to do with it!        
+        #end loop1
+
+    ## restore all peak heights to original height
+    for peak in trace.peaks:
+        peak.peak_height = peak.peak_height_original 
+
     return optimal_factor
 
 def determine_factor_single_peak():
