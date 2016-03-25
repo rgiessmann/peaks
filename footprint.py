@@ -141,6 +141,8 @@ def determine_factor_numerically(ref, trace):
     
     optimal_factor = 1
     rmsd_old = calculate_deviance_for_all_peaks(trace,ref)
+
+    ## store original data
     for peak in trace.peaks:
         peak.peak_height_original = peak.peak_height
 
@@ -157,8 +159,7 @@ def determine_factor_numerically(ref, trace):
        #use factors 0 to 3.5 in 0.01 steps , calculate new peak areas from peak areas
     for factor in numpy.arange(0,3.5,0.01):
 
-        for peak in trace.peaks:
-            peak.peak_height = factor * peak.peak_height_original
+        correct_peaks_with_factor(trace,factor)
             
         #use calculate_deviance_for_all_peaks with trace and ref
         rmsd_new = calculate_deviance_for_all_peaks(trace,ref)
@@ -207,8 +208,10 @@ def determine_factor_single_peak():
 def correct_peaks_with_factor(trace, factor):
     #read and append peak_list
     #multiply area of each peak for all traces with right factor from trace_list 
+    ## -> handled with in parent function
     #add new area to peak_list
-    print("")
+    for peak in trace.peaks:
+        peak.peak_height = peak.peak_height * factor
     return
 
 def which_peaks_differ(threshold=0.10):
