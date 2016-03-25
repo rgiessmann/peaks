@@ -261,7 +261,7 @@ def calculate_free_ligand_concentration(ref,trace):
             sum_fractional_occupancies += trace_peak.fractional_occupancy
         
     ## DEBUG
-    print(sum_fractional_occupancies)        
+    #print(sum_fractional_occupancies)        
         
     Lfree_conc = trace.Ltot_conc - trace.Rtot_conc*sum_fractional_occupancies
     #add result to trace list (L(free))
