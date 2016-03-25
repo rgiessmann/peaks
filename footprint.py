@@ -88,7 +88,6 @@ def get_data(parameters=None):
     Trace(file_name = "01-18-16-35-11 AM.fsa", dye_color = "B", Ltot_conc = 5, peaks=[
     Peak(11),
     Peak(21),
-    Peak(31)    
     ]),
     ]
     
