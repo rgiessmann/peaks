@@ -38,7 +38,7 @@ def main(argv=""):
 
     ## WARNING: this is step-wise implementing and testing the whole script
     trace_list, peak_list = get_data(None)
-    cluster_peaks(peak_list)
+    cluster_peaks(trace_list)
     print(calculate_deviance_for_all_peaks(peak_list, peak_list))
 
     ## DEBUG
@@ -54,15 +54,15 @@ class Trace:
         self.Ltot_conc = Ltot_conc
         self.peaks = peaks
         return
-    def __repr__(self):
-        return repr({"file_name" : self.file_name, "dye_color" : self.dye_color, "Ltot_conc" : self.Ltot_conc, "peaks" : self.peaks})
+    #def __repr__(self):
+    #    return repr({"file_name" : self.file_name, "dye_color" : self.dye_color, "Ltot_conc" : self.Ltot_conc, "peaks" : self.peaks})
 
 class Peak:
     def __init__(self, peak_height):
         self.peak_height = peak_height
         return
-    def __repr__(self):
-        return repr({"peak_height" : self.peak_height})
+    #def __repr__(self):
+    #    return repr({"peak_height" : self.peak_height})
     
 
 def get_data(parameters=None):
@@ -80,27 +80,25 @@ def get_data(parameters=None):
 
     ## 1. create minimal data objects with classes
     trace_list = [
-    Trace(file_name = "01-18-16-11-27 AM.fsa", dye_color = "B", Ltot_conc = 0),
-    Trace(file_name = "01-18-16-35-11 AM.fsa", dye_color = "B", Ltot_conc = 5),
+    Trace(file_name = "01-18-16-11-27 AM.fsa", dye_color = "B", Ltot_conc = 0, peaks=[
+    Peak(10),
+    Peak(20),
+    Peak(30)
+    ]),
+    Trace(file_name = "01-18-16-35-11 AM.fsa", dye_color = "B", Ltot_conc = 5, peaks=[
+    Peak(11),
+    Peak(21),
+    Peak(31)    
+    ]),
     ]
     
     ## DEBUG    
     #print(trace_list)
     
-    peak_list = [
-    Peak(10),
-    Peak(20),    
-    ]
-
-    for i in range(len(trace_list)):
-        trace_list[i].peaks.extend(peak_list)
-    
-    ## DEBUG
-    #print(peak_list)
-
     return trace_list, None
 
 def cluster_peaks(trace):
+    
     i = 1
     for peak in trace.peaks:
         peak.cluster = i
