@@ -3,6 +3,8 @@
 import logging
 import sys
 import getopt
+import numpy
+import scipy
 
    
 
@@ -43,6 +45,8 @@ def main(argv=""):
 
     ## DEBUG
     #print([peak.cluster for peak in peak_list])
+
+    print("done.")
 
     return
 
@@ -88,6 +92,7 @@ def get_data(parameters=None):
     Trace(file_name = "01-18-16-35-11 AM.fsa", dye_color = "B", Ltot_conc = 5, peaks=[
     Peak(11),
     Peak(21),
+    Peak(29)    
     ]),
     ]
     
@@ -106,6 +111,7 @@ def cluster_peaks(trace_list):
 
 def calculate_deviance_for_all_peaks(trace, ref, from_bp=20, to_bp=130):
     deviance_for_all_peaks = 0        
+    n=0
     for peak_cluster in set([peak.cluster for peak in ref.peaks]):
         ## DEBUG
         #print(peak_cluster)
@@ -113,14 +119,16 @@ def calculate_deviance_for_all_peaks(trace, ref, from_bp=20, to_bp=130):
         trace_peak = [peak for peak in trace.peaks if peak.cluster == peak_cluster]
         ref_peak = [peak for peak in ref.peaks if peak.cluster == peak_cluster]
         if len(trace_peak)==1 and len(ref_peak)==1:
-            deviance_for_all_peaks += ref_peak[0].peak_height - trace_peak[0].peak_height
+            ## calculates deviance as root mean square deviations
+            deviance_for_all_peaks += (ref_peak[0].peak_height - trace_peak[0].peak_height)**2
+            n+=1
         else:
             ## WARNING
             print("WARNING!")
 
-    #deviance_for_all_peaks = 1
+    rmsd = numpy.sqrt(deviance_for_all_peaks/n)
 
-    return deviance_for_all_peaks
+    return rmsd
 
 def determine_factor_numerically(ref, trace):
     # Robert's approach
