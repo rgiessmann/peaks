@@ -102,6 +102,8 @@ def get_data(parameters=None):
     return trace_list, None
 
 def cluster_peaks(trace_list):
+    ## TODO: make this skeleton function come alive
+
     for trace in trace_list:
         i = 1
         for peak in trace.peaks:
@@ -110,6 +112,8 @@ def cluster_peaks(trace_list):
     return 
 
 def calculate_deviance_for_all_peaks(trace, ref, from_bp=20, to_bp=130):
+    '''calculates the RMSD for peaks that were identified as clustered in trace _ref_, compared to _trace_, in the range (from_bp, to_bp)'''
+
     deviance_for_all_peaks = 0        
     n=0
     for peak_cluster in set([peak.cluster for peak in ref.peaks]):
@@ -118,8 +122,9 @@ def calculate_deviance_for_all_peaks(trace, ref, from_bp=20, to_bp=130):
 
         trace_peak = [peak for peak in trace.peaks if peak.cluster == peak_cluster]
         ref_peak = [peak for peak in ref.peaks if peak.cluster == peak_cluster]
+
+        ## TODO: implement check for called bp size
         if len(trace_peak)==1 and len(ref_peak)==1:
-            ## calculates deviance as root mean square deviations
             deviance_for_all_peaks += (ref_peak[0].peak_height - trace_peak[0].peak_height)**2
             n+=1
         else:
