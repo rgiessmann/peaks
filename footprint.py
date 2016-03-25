@@ -176,19 +176,40 @@ def which_peaks_differ(threshold=0.10):
     return peak_list
 
 def calculate_fractional_occupancies(peak_list):
+    #read and append trace list
+    #begin loop
+      #for each footprinted peak
+      #divide peak area with area of biggest of the 0M peaks (at same bp)
+      #add result to trace_list (fR)
+    #end loop
     print("")
     return fractional_occupancies
 
 def calculate_free_ligand_concentration():
+    #read and append trace list
+    #begin loop
+      #for each L(total)
+      #calculate: L(free)= L(total)-fR(1)*R(total)-fR(2)*R(total)-...-fR(n)*R(total) bzw. L(free)= L(total)-R(total)*(fR(1)+fR(2)+...+fR(n))
+      #add result to trace list (L(free))
+    #end loop
     print("")
     return fractional_occupancies
 
 
 def fit_data_determine_kd():
+    #read an append trace list
+    #begin loop
+      #for each footprinting site
+      #fit fR(n)=L(free)/(Kd(n)+L(free))
+      #add result to trace list
+    #end loop
     print("")
     return kd_values
 
 def plot_data():
+    #plot fR vs L(free)
+    #plot fit
+    #show Kd and Basepair number
     print("")
     return plots
 
