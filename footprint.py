@@ -13,7 +13,6 @@ def main(argv=""):
     ## standard settings
     config_file = None
     input_file = None
-    peak_list = None
     trace_list = None 
 
         
@@ -39,11 +38,14 @@ def main(argv=""):
     ## TODO: check input_files; split   
 
     ## WARNING: this is step-wise implementing and testing the whole script
-    trace_list, peak_list = get_data(None)
+    trace_list = get_data(None)
+    trace,ref=trace_list[0], trace_list[1]
     cluster_peaks(trace_list)
-    print("uncorrected RMSD of peaks: "+str(calculate_deviance_for_all_peaks(trace_list[0], trace_list[1])))
-    print(determine_factor_numerically(trace_list[0], trace_list[1]))
-
+    print("uncorrected RMSD of peaks: "+str(calculate_deviance_for_all_peaks(ref,trace)))
+    #for i,j in give_all_clustered_peaks(trace_list[0], trace_list[1]): print(i.peak_height,j.peak_height)
+    print("optimal factor : "+str(determine_factor_numerically(trace_list[0], trace_list[1])))
+    add_fractional_occupancies(ref,trace)
+    print("Lfree : "+str(calculate_free_ligand_concentration(ref,trace)))
     ## DEBUG
     #print([peak.cluster for peak in peak_list])
 
@@ -53,10 +55,11 @@ def main(argv=""):
 
 
 class Trace:
-    def __init__(self, file_name, dye_color, Ltot_conc, peaks=[]):
+    def __init__(self, file_name, dye_color, Ltot_conc, Rtot_conc, peaks=[]):
         self.file_name = file_name
         self.dye_color = dye_color
         self.Ltot_conc = Ltot_conc
+        self.Rtot_conc = Rtot_conc
         self.peaks = peaks
         return
     #def __repr__(self):
@@ -85,12 +88,12 @@ def get_data(parameters=None):
 
     ## 1. create minimal data objects with classes
     trace_list = [
-    Trace(file_name = "01-18-16-11-27 AM.fsa", dye_color = "B", Ltot_conc = 0, peaks=[
+    Trace(file_name = "01-18-16-11-27 AM.fsa", dye_color = "B", Ltot_conc = 5, Rtot_conc = 0.1, peaks=[
     Peak(10),
-    Peak(20),
-    Peak(30)
+    Peak(40),
+    Peak(60)
     ]),
-    Trace(file_name = "01-18-16-35-11 AM.fsa", dye_color = "B", Ltot_conc = 5, peaks=[
+    Trace(file_name = "01-18-16-35-11 AM.fsa", dye_color = "B", Ltot_conc = 0, Rtot_conc = 0.1, peaks=[
     Peak(20),
     Peak(40),
     Peak(60)    
@@ -100,7 +103,7 @@ def get_data(parameters=None):
     ## DEBUG    
     #print(trace_list)
     
-    return trace_list, None
+    return trace_list
 
 def cluster_peaks(trace_list):
     ## TODO: make this skeleton function come alive
@@ -112,14 +115,26 @@ def cluster_peaks(trace_list):
             i += 1
     return 
 
-def calculate_deviance_for_all_peaks(trace, ref, from_bp=20, to_bp=130):
+def calculate_deviance_for_all_peaks(ref, trace, from_bp=20, to_bp=130):
     '''calculates the RMSD for peaks that were identified as clustered in trace _ref_, compared to _trace_, in the range (from_bp, to_bp)'''
 
     deviance_for_all_peaks = 0        
     n=0
-    for ref_peak, trace_peak in give_all_clustered_peaks(ref,trace):
-            deviance_for_all_peaks += (ref_peak[0].peak_height - trace_peak[0].peak_height)**2
-            n+=1
+    for ref_peak,trace_peak in give_all_clustered_peaks(ref,trace):
+        #print(ref_peak,trace_peak)        
+        
+        ## SIMPLE VERSION        
+        #deviance_for_all_peaks += (ref_peak.peak_height - trace_peak.peak_height)**2
+        
+        ## FANCY VERSION
+        if ref_peak.peak_height > trace_peak.peak_height:
+            deviance_for_all_peaks += (ref_peak.peak_height - trace_peak.peak_height)**2
+        else:
+            ## deviance_for_all_peaks += 0
+            ## equals 
+            pass
+
+        n+=1
 
     rmsd = numpy.sqrt(deviance_for_all_peaks/n)
 
@@ -130,14 +145,14 @@ def give_all_clustered_peaks(ref,trace):
         trace_peak = [peak for peak in trace.peaks if peak.cluster == peak_cluster]
         ref_peak = [peak for peak in ref.peaks if peak.cluster == peak_cluster]        
         if len(trace_peak)==1 and len(ref_peak)==1:
-            yield (ref_peak,trace_peak)
+            yield (ref_peak[0],trace_peak[0])
                         
 
 def determine_factor_numerically(ref, trace):
     ## TODO: implement real optimizer via scipy.optimize()    
     
     optimal_factor = 1
-    rmsd_old = calculate_deviance_for_all_peaks(trace,ref)
+    rmsd_old = calculate_deviance_for_all_peaks(ref,trace)
 
     ## store original data
     for peak in trace.peaks:
@@ -159,11 +174,15 @@ def determine_factor_numerically(ref, trace):
         correct_peaks_with_factor(trace,factor)
             
         #use calculate_deviance_for_all_peaks with trace and ref
-        rmsd_new = calculate_deviance_for_all_peaks(trace,ref)
+        rmsd_new = calculate_deviance_for_all_peaks(ref,trace)
+                
+        ## restore all peak heights to original height
+        for peak in trace.peaks:
+            peak.peak_height = peak.peak_height_original 
         
         ## DEBUG        
         #list deviance_new (including factor)
-        print(str(factor)+" : "+str(rmsd_new))
+        #print(str(factor)+" : "+str(rmsd_new))
 
         #compare deviance_new with deviance_old, if better deviance_new -> deviance_old, else delete deviance_new
 
@@ -178,10 +197,6 @@ def determine_factor_numerically(ref, trace):
         #put factor from deviance_old to trace_list (for right trace)
         ## -> this factor is simply returned, let parent function decide what to do with it!        
         #end loop1
-
-    ## restore all peak heights to original height
-    for peak in trace.peaks:
-        peak.peak_height = peak.peak_height_original 
 
     return optimal_factor
 
@@ -207,9 +222,10 @@ def correct_peaks_with_factor(trace, factor):
     #multiply area of each peak for all traces with right factor from trace_list 
     ## -> handled with in parent function
     #add new area to peak_list
+    
     for peak in trace.peaks:
         peak.peak_height = peak.peak_height * factor
-    return
+    return trace
 
 def which_peaks_differ(threshold=0.10):
     #begin loop
@@ -220,28 +236,38 @@ def which_peaks_differ(threshold=0.10):
     print("")
     return peak_list
 
-def calculate_fractional_occupancies(ref,trace):
+def add_fractional_occupancies(ref,trace):
     #read and append trace list
     #begin loop
-    for peak in trace.peaks:
+    for ref_peak,trace_peak in give_all_clustered_peaks(ref,trace):
         #for each footprinted peak
-        peak.fractional_occupancy = peak.peak_height / ref.peak_height
+        trace_peak.fractional_occupancy = trace_peak.peak_height / ref_peak.peak_height        
         #divide peak area with area of biggest of the 0M peaks (at same bp)
         #add result to trace_list (fR)
     
     #end loop
     print("")
-    return fractional_occupancies
+    return 
 
-def calculate_free_ligand_concentration():
+def calculate_free_ligand_concentration(ref,trace):
     #read and append trace list
     #begin loop
       #for each L(total)
       #calculate: L(free)= L(total)-fR(1)*R(total)-fR(2)*R(total)-...-fR(n)*R(total) bzw. L(free)= L(total)-R(total)*(fR(1)+fR(2)+...+fR(n))
-      #add result to trace list (L(free))
+    sum_fractional_occupancies = 0
+    for ref_peak,trace_peak in give_all_clustered_peaks(ref,trace):
+        #for each footprinted peak
+        if trace_peak.fractional_occupancy < 1:
+            sum_fractional_occupancies += trace_peak.fractional_occupancy
+        
+    ## DEBUG
+    print(sum_fractional_occupancies)        
+        
+    Lfree_conc = trace.Ltot_conc - trace.Rtot_conc*sum_fractional_occupancies
+    #add result to trace list (L(free))
     #end loop
     print("")
-    return fractional_occupancies
+    return Lfree_conc
 
 
 def fit_data_determine_kd():
