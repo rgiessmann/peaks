@@ -97,12 +97,12 @@ def get_data(parameters=None):
     
     return trace_list, None
 
-def cluster_peaks(trace):
-    
-    i = 1
-    for peak in trace.peaks:
-        peak.cluster = i
-        i += 1
+def cluster_peaks(trace_list):
+    for trace in trace_list:
+        i = 1
+        for peak in trace.peaks:
+            peak.cluster = i
+            i += 1
     return 
 
 def calculate_deviance_for_all_peaks(trace, ref, from_bp=20, to_bp=130):
