@@ -39,7 +39,7 @@ def main(argv=""):
     ## WARNING: this is step-wise implementing and testing the whole script
     trace_list, peak_list = get_data(None)
     cluster_peaks(trace_list)
-    print(calculate_deviance_for_all_peaks(peak_list, peak_list))
+    print(calculate_deviance_for_all_peaks(trace_list[0], trace_list[1]))
 
     ## DEBUG
     #print([peak.cluster for peak in peak_list])
