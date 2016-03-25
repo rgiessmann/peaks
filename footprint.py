@@ -117,24 +117,21 @@ def calculate_deviance_for_all_peaks(trace, ref, from_bp=20, to_bp=130):
 
     deviance_for_all_peaks = 0        
     n=0
-    for peak_cluster in set([peak.cluster for peak in ref.peaks]):
-        ## DEBUG
-        #print(peak_cluster)
-
-        trace_peak = [peak for peak in trace.peaks if peak.cluster == peak_cluster]
-        ref_peak = [peak for peak in ref.peaks if peak.cluster == peak_cluster]
-
-        ## TODO: implement check for called bp size
-        if len(trace_peak)==1 and len(ref_peak)==1:
+    for ref_peak, trace_peak in give_all_clustered_peaks(ref,trace):
             deviance_for_all_peaks += (ref_peak[0].peak_height - trace_peak[0].peak_height)**2
             n+=1
-        else:
-            ## WARNING
-            print("WARNING!")
 
     rmsd = numpy.sqrt(deviance_for_all_peaks/n)
 
     return rmsd
+    
+def give_all_clustered_peaks(ref,trace):
+    for peak_cluster in set([peak.cluster for peak in ref.peaks]):
+        trace_peak = [peak for peak in trace.peaks if peak.cluster == peak_cluster]
+        ref_peak = [peak for peak in ref.peaks if peak.cluster == peak_cluster]        
+        if len(trace_peak)==1 and len(ref_peak)==1:
+            yield (ref_peak,trace_peak)
+                        
 
 def determine_factor_numerically(ref, trace):
     ## TODO: implement real optimizer via scipy.optimize()    
@@ -223,12 +220,15 @@ def which_peaks_differ(threshold=0.10):
     print("")
     return peak_list
 
-def calculate_fractional_occupancies(peak_list):
+def calculate_fractional_occupancies(ref,trace):
     #read and append trace list
     #begin loop
-      #for each footprinted peak
-      #divide peak area with area of biggest of the 0M peaks (at same bp)
-      #add result to trace_list (fR)
+    for peak in trace.peaks:
+        #for each footprinted peak
+        peak.fractional_occupancy = peak.peak_height / ref.peak_height
+        #divide peak area with area of biggest of the 0M peaks (at same bp)
+        #add result to trace_list (fR)
+    
     #end loop
     print("")
     return fractional_occupancies
