@@ -258,7 +258,7 @@ def calculate_free_ligand_concentration(ref,trace):
     for ref_peak,trace_peak in give_all_clustered_peaks(ref,trace):
         #for each footprinted peak
         if trace_peak.fractional_occupancy < 1:
-            sum_fractional_occupancies += trace_peak.fractional_occupancy
+            sum_fractional_occupancies += 1 - trace_peak.fractional_occupancy
         
     ## DEBUG
     #print(sum_fractional_occupancies)        
