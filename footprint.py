@@ -206,8 +206,11 @@ def calculate_deviance_for_all_peaks(ref, trace, from_bp=20, to_bp=130):
     rmsd_all = numpy.sqrt((deviance_for_all_peaks + deviance_for_every_peak)/(m+n))
 
     #print(rmsd_all)    
+
+    ## decide what to evaluate here -- maybe something weighted, maybe not?
+    value = rmsd_all
     
-    return rmsd, rmsd_all
+    return value
     
 def give_all_clustered_peaks(ref,trace):
     for peak_cluster in set([peak.cluster for peak in ref.peaks]):
