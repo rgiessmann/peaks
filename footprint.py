@@ -60,19 +60,21 @@ class Trace:
     def __init__(self, file_name, dye_color, Ltot_conc, Rtot_conc, peaks=[]):
         self.file_name = file_name
         self.dye_color = dye_color
-        self.Ltot_conc = Ltot_conc
-        self.Rtot_conc = Rtot_conc
+        self.Ltot_conc = float(Ltot_conc)
+        self.Rtot_conc = float(Rtot_conc)
         self.peaks = peaks
         return
-    #def __repr__(self):
+    def __repr__(self):
+        return repr(vars(self))
     #    return repr({"file_name" : self.file_name, "dye_color" : self.dye_color, "Ltot_conc" : self.Ltot_conc, "peaks" : self.peaks})
 
 class Peak:
     def __init__(self, size_bp, peak_height):
-        self.size_bp = size_bp
-        self.peak_height = peak_height
+        self.size_bp = float(size_bp)
+        self.peak_height = float(peak_height)
         return
-    #def __repr__(self):
+    def __repr__(self):
+        return repr(vars(self))
     #    return repr({"peak_height" : self.peak_height})
 
 class Index:
@@ -108,7 +110,7 @@ def get_data(read_filelist="/Users/rgiessmann/Desktop/HexA.csv"):
         import csv
         trace_list = []
         ## TODO: what entries to accept?
-        sample_file_names = ["103-23-16-6-33 PM.fsa"] 
+        sample_file_names = ["103-23-16-6-33 PM.fsa", "113-23-16-7-08 PM.fsa"] 
         
         if type(read_filelist) is not list:
             read_filelist = [read_filelist]
@@ -135,12 +137,13 @@ def get_data(read_filelist="/Users/rgiessmann/Desktop/HexA.csv"):
                     if row[index.file_name] not in storage_traces:
                         # Nope.
                         trace_list.append(
-                        Trace(file_name = row[index.file_name], dye_color = row[index.dye], Ltot_conc = 0, Rtot_conc = 0.1)                    
+                        Trace(file_name = row[index.file_name], dye_color = row[index.dye], Ltot_conc = 0, Rtot_conc = 0.1, peaks=[])                    
                         )
                         storage_traces.append(row[index.file_name])
                     #to which trace?
                     t = [trace for trace in trace_list if trace.file_name == row[index.file_name]][0]
                     t.peaks.append(Peak(row[index.size_bp], row[index.peak_height]))
+                    del(t)
 
                 
                 
@@ -168,6 +171,11 @@ def cluster_peaks(ref,trace_list,accepted_offset=0.1):
                 if ref_peak.size_bp - accepted_offset < peak.size_bp < ref_peak.size_bp + accepted_offset:
                     peak.cluster = i
                     break
+    for trace in trace_list:
+        for peak in trace.peaks:
+            if "cluster" not in vars(peak):
+                peak.cluster = 0
+    
     return 
 
 def calculate_deviance_for_all_peaks(ref, trace, from_bp=20, to_bp=130):
