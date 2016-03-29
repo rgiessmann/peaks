@@ -253,13 +253,12 @@ def calculate_deviance_for_all_peaks(ref, trace, from_bp=20, to_bp=130):
         if ref_peak.peak_height > trace_peak.peak_height:
             #print("calculate deviance for peak ...")
             deviance_for_all_peaks += (ref_peak.peak_height - trace_peak.peak_height)**2
+            n+=1
         else:
             ## deviance_for_all_peaks += 0
             ## equals 
             deviance_for_every_peak += (ref_peak.peak_height - trace_peak.peak_height)**2
             m+=1
-            
-        n+=1
 
     rmsd = numpy.sqrt(deviance_for_all_peaks/n)
     rmsd_all = numpy.sqrt((deviance_for_all_peaks + deviance_for_every_peak)/(m+n))
