@@ -91,8 +91,8 @@ def get_data(parameters=None):
     trace_list = [
     Trace(file_name = "01-18-16-11-27 AM.fsa", dye_color = "B", Ltot_conc = 5, Rtot_conc = 0.1, peaks=[
     Peak(1.07,10),
-    Peak(1.98,20),
-    Peak(3.01,60)
+    Peak(1.98,39),
+    Peak(3.01,61)
     ]),
     Trace(file_name = "01-18-16-35-11 AM.fsa", dye_color = "B", Ltot_conc = 0, Rtot_conc = 0.1, peaks=[
     Peak(1,20),
@@ -129,27 +129,33 @@ def cluster_peaks(ref,trace_list,accepted_offset=0.1):
 def calculate_deviance_for_all_peaks(ref, trace, from_bp=20, to_bp=130):
     '''calculates the RMSD for peaks that were identified as clustered in trace _ref_, compared to _trace_, in the range (from_bp, to_bp)'''
 
-    deviance_for_all_peaks = 0        
+    deviance_for_all_peaks = 0
+    deviance_for_every_peak = 0        
     n=0
+    m=0
     for ref_peak,trace_peak in give_all_clustered_peaks(ref,trace):
         #print(ref_peak,trace_peak)        
         
         ## SIMPLE VERSION        
-        #deviance_for_all_peaks += (ref_peak.peak_height - trace_peak.peak_height)**2
         
         ## FANCY VERSION
         if ref_peak.peak_height > trace_peak.peak_height:
+            #print("calculate deviance for peak ...")
             deviance_for_all_peaks += (ref_peak.peak_height - trace_peak.peak_height)**2
         else:
             ## deviance_for_all_peaks += 0
             ## equals 
-            pass
-
+            deviance_for_every_peak += (ref_peak.peak_height - trace_peak.peak_height)**2
+            m+=1
+            
         n+=1
 
     rmsd = numpy.sqrt(deviance_for_all_peaks/n)
+    rmsd_all = numpy.sqrt((deviance_for_all_peaks + deviance_for_every_peak)/(m+n))
 
-    return rmsd
+    #print(rmsd_all)    
+    
+    return rmsd, rmsd_all
     
 def give_all_clustered_peaks(ref,trace):
     for peak_cluster in set([peak.cluster for peak in ref.peaks]):
@@ -193,7 +199,7 @@ def determine_factor_numerically(ref, trace):
         
         ## DEBUG        
         #list deviance_new (including factor)
-        #print(str(factor)+" : "+str(rmsd_new))
+        print(str(factor)+" : "+str(rmsd_new))
 
         #compare deviance_new with deviance_old, if better deviance_new -> deviance_old, else delete deviance_new
 
