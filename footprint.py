@@ -41,11 +41,20 @@ def main(argv=""):
 #    trace_list = get_data(None)
     trace_list = get_data()
     
-    trace,ref=trace_list[0], trace_list[1]
+    trace,ref=trace_list[7], trace_list[13]
     cluster_peaks(ref,[trace])
     print("uncorrected RMSD of peaks: "+str(calculate_deviance_for_all_peaks(ref,trace)))
     #for i,j in give_all_clustered_peaks(trace_list[0], trace_list[1]): print(i.peak_height,j.peak_height)
-    print("optimal factor : "+str(determine_factor_numerically(trace_list[0], trace_list[1])))
+
+    for i,j in give_all_clustered_peaks(ref,trace): print(i.peak_height,j.peak_height)
+
+    factor = determine_factor_numerically(ref, trace)
+    print("optimal factor : "+str(factor))
+    correct_peaks_with_factor(trace,factor)
+
+    print("Corrected peak pairs: ")
+    for i,j in give_all_clustered_peaks(ref,trace): print(i.peak_height,j.peak_height)
+
     add_fractional_occupancies(ref,trace)
     print("Lfree : "+str(calculate_free_ligand_concentration(ref,trace)))
     ## DEBUG
@@ -99,9 +108,9 @@ def list_traces(read_filelist="/Users/rgiessmann/Desktop/HexA.csv"):
 
     print("Writing read traces to output_traces.csv...")
     w=csv.writer(open("output_traces.csv","w"))
-    w.writerow(["Sample ID","Sample File Name", "Ltot", "Rtot"])
+    w.writerow(["Sample ID","Sample File Name", "Dye", "Ltot", "Rtot"])
     for row in storage_traces:
-        w.writerow([row[1],row[0],"",""])
+        w.writerow([row[1],row[0],"?","?","?"])
     return storage_traces
 
 def get_data(read_filelist="/Users/rgiessmann/Desktop/HexA.csv"):
@@ -134,41 +143,68 @@ def get_data(read_filelist="/Users/rgiessmann/Desktop/HexA.csv"):
         import csv
         trace_list = []
         ## TODO: what entries to accept?
-        sample_file_names = ["103-23-16-6-33 PM.fsa", "113-23-16-7-08 PM.fsa"] 
+        config_file = "input_traces.csv"
+        with open(config_file) as g:
+            csv_reader = csv.DictReader(g)
+            sample_files = []
+            for row in csv_reader:
+                sample_files.append(row)
+            
+        #sample_files = [
+        #["103-23-16-6-33 PM.fsa","B","0","0.1"],
+        #["113-23-16-7-08 PM.fsa","B","0","0.1"],
+        #]
+        
+        sample_file_names = []
+        for i in sample_files:
+            sample_file_names.append(i["Sample File Name"]) 
+
+#        sample_file_names = ["103-23-16-6-33 PM.fsa", "113-23-16-7-08 PM.fsa"] 
         
         if type(read_filelist) is not list:
             read_filelist = [read_filelist]
 
         storage_traces = []
         for file in read_filelist:
-            csv_reader = csv.reader(open(file))
-            header = csv_reader.__next__()
-            index = Index()
-            index.peak_height = header.index("Height")
-            index.size_bp = header.index("Size")
-            index.file_name = header.index('Sample File Name')
-            index.sample_name = header.index('Sample Name')
-            index.dye = len(header)
-            index.sample_peak = len(header)+1
-            
-            for row in csv_reader:
-                #rules for entry acceptance?
+            with open(file) as f:            
+                csv_reader = csv.reader(f)
+                header = csv_reader.__next__()
+                index = Index()
+                index.peak_height = header.index("Height")
+                index.size_bp = header.index("Size")
+                index.file_name = header.index('Sample File Name')
+                index.sample_name = header.index('Sample Name')
+                index.dye = len(header)
+                index.sample_peak = len(header)+1
                 
-                if True: #split_combined_fields == 
-                    row.extend(row[header.index('Dye/Sample Peak')].split(","))
-                if row[index.file_name] in sample_file_names and "B" in row[index.dye]:
-                    # trace already in trace_list?                                        
-                    if row[index.file_name] not in storage_traces:
-                        # Nope.
-                        trace_list.append(
-                        Trace(file_name = row[index.file_name], dye_color = row[index.dye], Ltot_conc = 0, Rtot_conc = 0.1, peaks=[])                    
-                        )
-                        storage_traces.append(row[index.file_name])
-                    #to which trace?
-                    t = [trace for trace in trace_list if trace.file_name == row[index.file_name]][0]
-                    t.peaks.append(Peak(row[index.size_bp], row[index.peak_height]))
-                    del(t)
+                for row in csv_reader:
+                    #rules for entry acceptance?
+                    
+                    if True: #split_combined_fields == 
+                        row.extend(row[header.index('Dye/Sample Peak')].split(","))
+                    if row[index.file_name] in sample_file_names and "B" in row[index.dye]:
+                        # trace already in trace_list?                                        
+                        if row[index.file_name] not in storage_traces:
+                            # Nope.
+                            ## load additional data
+                            data = [sample for sample in sample_files if sample["Sample File Name"] == row[index.file_name]][0]
+                            trace_list.append(
+                            Trace(file_name = data["Sample File Name"], dye_color = data["Dye"], Ltot_conc = data["Ltot"], Rtot_conc = data["Rtot"], peaks=[])                    
+                            )
+                            storage_traces.append(row[index.file_name])
+                        
+                        if row[index.size_bp] == "" or row[index.peak_height] == "":
+                            continue
+                        
+                        #to which trace?
+                        t = [trace for trace in trace_list if trace.file_name == row[index.file_name]][0]
+                        t.peaks.append(Peak(row[index.size_bp], row[index.peak_height]))
+                        del(t)            
 
+        for foo in sample_file_names:
+            if foo not in storage_traces:
+                print("Couldn't find trace "+str(foo)+" in the given files...")
+            
                 
                 
     
@@ -194,7 +230,6 @@ def cluster_peaks(ref,trace_list,accepted_offset=0.1):
             for peak in trace.peaks:
                 if ref_peak.size_bp - accepted_offset < peak.size_bp < ref_peak.size_bp + accepted_offset:
                     peak.cluster = i
-                    break
     for trace in trace_list:
         for peak in trace.peaks:
             if "cluster" not in vars(peak):

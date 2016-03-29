@@ -8,3 +8,5 @@ footprint.pyc
 __pycache__/footprint.cpython-35.pyc
 
 output_traces.csv
+
+input_traces.csv
