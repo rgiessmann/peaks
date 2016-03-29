@@ -80,6 +80,30 @@ class Peak:
 class Index:
     pass    
 
+def list_traces(read_filelist="/Users/rgiessmann/Desktop/HexA.csv"):
+    import csv
+    if type(read_filelist) is not list:
+            read_filelist = [read_filelist]
+    storage_traces = []
+    for file in read_filelist:
+        csv_reader = csv.reader(open(file))
+        header = csv_reader.__next__()
+        index = Index()
+        index.file_name = header.index('Sample File Name')
+        index.sample_name = header.index('Sample Name')
+        
+        for row in csv_reader:
+            if row[index.file_name] not in [t[0] for t in storage_traces]:
+                # Nope.
+                storage_traces.append([row[index.file_name],row[index.sample_name]])
+
+    print("Writing read traces to output_traces.csv...")
+    w=csv.writer(open("output_traces.csv","w"))
+    w.writerow(["Sample ID","Sample File Name", "Ltot", "Rtot"])
+    for row in storage_traces:
+        w.writerow([row[1],row[0],"",""])
+    return storage_traces
+
 def get_data(read_filelist="/Users/rgiessmann/Desktop/HexA.csv"):
     ## WARNING : this is a non-functional skeleton function
     ## TODO: read in the data from config and input files
