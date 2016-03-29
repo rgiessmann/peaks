@@ -38,7 +38,9 @@ def main(argv=""):
     ## TODO: check input_files; split   
 
     ## WARNING: this is step-wise implementing and testing the whole script
-    trace_list = get_data(None)
+#    trace_list = get_data(None)
+    trace_list = get_data()
+    
     trace,ref=trace_list[0], trace_list[1]
     cluster_peaks(ref,[trace])
     print("uncorrected RMSD of peaks: "+str(calculate_deviance_for_all_peaks(ref,trace)))
@@ -72,10 +74,14 @@ class Peak:
         return
     #def __repr__(self):
     #    return repr({"peak_height" : self.peak_height})
-    
 
-def get_data(parameters=None):
+class Index:
+    pass    
+
+def get_data(read_filelist="/Users/rgiessmann/Desktop/HexA.csv"):
     ## WARNING : this is a non-functional skeleton function
+    ## TODO: read in the data from config and input files
+
 
     #read csv (?) file
     #if color blue and if peak size between ... and ..., copy size, name and area to peak_list
@@ -83,23 +89,61 @@ def get_data(parameters=None):
     #trace_list = ... #contains factor for each trace, footprint peaks, fractional occupancies, ligand and receptor concentrations, kd values
     #peak_list = ... #contains Peaks and areas, new calculated areas
 
-    ## TODO: read in the data from config and input files
-    ## trace_list = ... #contains factor for each trace, footprint peaks, fractional occupancies, ligand and receptor concentrations, kd values
-    ## peak_list = ... #contains Peaks and areas, new calculated areas
 
     ## 1. create minimal data objects with classes
-    trace_list = [
-    Trace(file_name = "01-18-16-11-27 AM.fsa", dye_color = "B", Ltot_conc = 5, Rtot_conc = 0.1, peaks=[
-    Peak(1.07,10),
-    Peak(1.98,39),
-    Peak(3.01,61)
-    ]),
-    Trace(file_name = "01-18-16-35-11 AM.fsa", dye_color = "B", Ltot_conc = 0, Rtot_conc = 0.1, peaks=[
-    Peak(1,20),
-    Peak(2,40),
-    Peak(3,60)    
-    ]),
-    ]
+    if read_filelist == None:
+        trace_list = [
+        Trace(file_name = "01-18-16-11-27 AM.fsa", dye_color = "B", Ltot_conc = 5, Rtot_conc = 0.1, peaks=[
+        Peak(1.07,10),
+        Peak(1.98,39),
+        Peak(3.01,61)
+        ]),
+        Trace(file_name = "01-18-16-35-11 AM.fsa", dye_color = "B", Ltot_conc = 0, Rtot_conc = 0.1, peaks=[
+        Peak(1,20),
+        Peak(2,40),
+        Peak(3,60)    
+        ]),
+        ]
+    else:
+        import csv
+        trace_list = []
+        ## TODO: what entries to accept?
+        sample_file_names = ["103-23-16-6-33 PM.fsa"] 
+        
+        if type(read_filelist) is not list:
+            read_filelist = [read_filelist]
+
+        storage_traces = []
+        for file in read_filelist:
+            csv_reader = csv.reader(open(file))
+            header = csv_reader.__next__()
+            index = Index()
+            index.peak_height = header.index("Height")
+            index.size_bp = header.index("Size")
+            index.file_name = header.index('Sample File Name')
+            index.sample_name = header.index('Sample Name')
+            index.dye = len(header)
+            index.sample_peak = len(header)+1
+            
+            for row in csv_reader:
+                #rules for entry acceptance?
+                
+                if True: #split_combined_fields == 
+                    row.extend(row[header.index('Dye/Sample Peak')].split(","))
+                if row[index.file_name] in sample_file_names and "B" in row[index.dye]:
+                    # trace already in trace_list?                                        
+                    if row[index.file_name] not in storage_traces:
+                        # Nope.
+                        trace_list.append(
+                        Trace(file_name = row[index.file_name], dye_color = row[index.dye], Ltot_conc = 0, Rtot_conc = 0.1)                    
+                        )
+                        storage_traces.append(row[index.file_name])
+                    #to which trace?
+                    t = [trace for trace in trace_list if trace.file_name == row[index.file_name]][0]
+                    t.peaks.append(Peak(row[index.size_bp], row[index.peak_height]))
+
+                
+                
     
     ## DEBUG    
     #print(trace_list)
