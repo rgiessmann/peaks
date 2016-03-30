@@ -387,7 +387,7 @@ def which_peaks_differ(threshold=0.10):
     #end loop
      for peak in ref.peaks:
         for peak in trace.peaks:
-        if ref_peak.peak_height - trace_peak.peak_height > threshold:
+        if ref_peak.peak_height - trace_peak.peak_height > threshold and ref_peak.Ltot != trace_peak != Ltot:
            peak.footprinted_peak = 1
          else
          peak.footprinted_peak = 0
@@ -428,17 +428,25 @@ def calculate_free_ligand_concentration(ref,trace):
     print("")
     return Lfree_conc
 
+def fitFunc(Lfree_conc, Kd):
+    return (Lfree_conc)/(Lfree_conc * Kd)
 
 def fit_data_determine_kd():
     #read an append trace list
     #begin loop
+     for peak in ref.peaks:
+        for peak in trace.peaks:
+           if peak.footprinted_peak = 1:
+              Lfree_conc = trace.Lfree_conc
+              fR = trace_peak.fractional_occupancy 
+              Kd_values = curve_fit(fitFunc, Lfree_conc, fR)
       #for each footprinting site
         # -> results of all traces fitted at the same time?
       #fit fR(n)=L(free)/(Kd(n)+L(free))
       #add result to trace list
     #end loop
     print("")
-    return kd_values
+    return Kd_values
 
 def plot_data():
     #plot fR vs L(free)
