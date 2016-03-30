@@ -48,19 +48,29 @@ def main(argv=""):
     #for i,j in give_all_clustered_peaks(trace_list[0], trace_list[1]): print(i.peak_height,j.peak_height)
 
     for i,j in give_all_clustered_peaks(ref,trace): print(i.peak_height,j.peak_height)
-
+    which_peaks_differ(ref, trace, threshold=0.10)
     factor = determine_factor_numerically(ref, trace)
     print("optimal factor : "+str(factor))
+    ## TODO: optimize single factor calculation!
+    #single_factor = determine_factor_single_peak(ref, trace)
+    #print("optimal factor 2 : "+str(single_factor))
+    
     correct_peaks_with_factor(trace,factor)
 
     print("Corrected peak pairs: ")
     for i,j in give_all_clustered_peaks(ref,trace): print(i.peak_height,j.peak_height)
 
     add_fractional_occupancies(ref,trace)
+    Lfree_conc = calculate_free_ligand_concentration(ref,trace)
     print("Lfree : "+str(calculate_free_ligand_concentration(ref,trace)))
     ## DEBUG
     #print([peak.cluster for peak in peak_list])
+    
+    for i,j in give_all_clustered_peaks(ref,trace): print(i.peak_height,j.peak_height)
 
+    #fitFunc(Lfree_conc)
+    fit_data_determine_kd(ref, trace, Lfree_conc)
+    
     print("done.")
 
     return
@@ -90,7 +100,7 @@ class Peak:
 class Index:
     pass    
 
-def list_traces(read_filelist="/Users/rgiessmann/Desktop/HexA.csv"):
+def list_traces(read_filelist="/Users/Magdalena Scharf/Desktop/HexA.csv"):
     import csv
     if type(read_filelist) is not list:
             read_filelist = [read_filelist]
@@ -114,7 +124,7 @@ def list_traces(read_filelist="/Users/rgiessmann/Desktop/HexA.csv"):
         w.writerow([row[1],row[0],"?","?","?"])
     return storage_traces
 
-def get_data(read_filelist="/Users/rgiessmann/Desktop/HexA.csv"):
+def get_data(read_filelist="C:/Users/Magdalena Scharf/Desktop/HexA.csv"):
     ## WARNING : this is a non-functional skeleton function
     ## TODO: read in the data from config and input files
 
@@ -169,7 +179,7 @@ def get_data(read_filelist="/Users/rgiessmann/Desktop/HexA.csv"):
         for file in read_filelist:
             with open(file) as f:            
                 csv_reader = csv.reader(f)
-                header = csv_reader.__next__()
+                header = csv_reader.next()
                 index = Index()
                 index.peak_height = header.index("Height")
                 index.size_bp = header.index("Size")
@@ -331,7 +341,7 @@ def determine_factor_numerically(ref, trace):
 
     return optimal_factor
 
-def determine_factor_single_peak():
+def determine_factor_single_peak(ref, trace):
    
     optimal_factor = 1
     rmsd_old = calculate_deviance_for_all_peaks(ref,trace)
@@ -344,9 +354,9 @@ def determine_factor_single_peak():
         #loop1 begin
      #for each trace
      #loop2 begin
-    for peak in ref.peaks:
-        for peak in trace.peaks:
-           ref_peak.peak_height = trace_peak.peak_height * factor
+    for ref_peak,trace_peak in give_all_clustered_peaks(ref,trace):
+       for factor in numpy.arange(0,3.5,0.01): 
+        if ref_peak.peak_height == trace_peak.peak_height * factor:
            correct_peaks_with_factor(trace,factor)
             
         #use calculate_deviance_for_all_peaks with trace and ref
@@ -380,21 +390,20 @@ def correct_peaks_with_factor(trace, factor):
         peak.peak_height = peak.peak_height * factor
     return trace
 
-def which_peaks_differ(threshold=0.10):
+def which_peaks_differ(ref, trace, threshold=0.10):
     #begin loop
       #for each peak 
       #compare peak areas of traces with different concentration
       #if difference >0.1 add peak to trace list
     #end loop
-     for peak in ref.peaks:
-        for peak in trace.peaks:
-        if ref_peak.peak_height - trace_peak.peak_height > threshold and ref_peak.Ltot != trace_peak != Ltot:
-           peak.footprinted_peak = 1
-         else
-         peak.footprinted_peak = 0
+    for ref_peak,trace_peak in give_all_clustered_peaks(ref,trace):
+         if ref_peak.peak_height - trace_peak.peak_height > threshold and ref.Ltot_conc != trace.Ltot_conc:
+           trace_peak.footprinted_peak = 1
+         else:
+           trace_peak.footprinted_peak = 0
         
     print("")
-    return peak.footprinted_peak
+    return trace_peak.footprinted_peak
 
 def add_fractional_occupancies(ref,trace):
     #read and append trace list
@@ -429,16 +438,18 @@ def calculate_free_ligand_concentration(ref,trace):
     print("")
     return Lfree_conc
 
-def fitFunc(Lfree_conc, Kd):
+def fitFunc(Lfree_conc):
+    #for ref_peak,trace_peak in give_all_clustered_peaks(ref,trace):
+        #Func = (Lfree_conc)/(Lfree_conc * Kd)
+    #Kd = 
     return (Lfree_conc)/(Lfree_conc * Kd)
 
-def fit_data_determine_kd():
+def fit_data_determine_kd(ref, trace, Lfree_conc):
     #read an append trace list
     #begin loop
-     for peak in ref.peaks:
-        for peak in trace.peaks:
-           if peak.footprinted_peak = 1:
-              Lfree_conc = trace.Lfree_conc
+    for ref_peak,trace_peak in give_all_clustered_peaks(ref,trace):
+           if trace_peak.footprinted_peak == 1:
+              Lfree_conc = Lfree_conc 
               fR = trace_peak.fractional_occupancy 
               Kd_values, Variances = curve_fit(fitFunc, Lfree_conc, fR)
       #for each footprinting site
@@ -450,9 +461,9 @@ def fit_data_determine_kd():
     return Kd_values, variances
 
 def plot_data():
-   for peak in ref.peaks:
+  for peak in ref.peaks:
         for peak in trace.peaks:
-           if peak.footprinted_peak = 1:
+           if peak.footprinted_peak == 1:
               plt.ylabel('Fractional Occupancy', fontsize = 16)
               plt.xlabel('Free Ligand Concentration', fontsize = 16)
               plt.title(trace.size_bp)
@@ -465,13 +476,12 @@ def plot_data():
                ]
               plt.plot(t, fitFunc(t, Kd[0], Kd[1], Kd[2]),\
               t, fitFunc(t, Kd[0] + sigma[0], Kd[1] - sigma[1], Kd[2] + sigma[2]),\
-              t, fitFunc(t, Kd[0] - sigma[0], Kd[1] + sigma[1], Kd[2] - sigma[2])\  
-                )
+              t, fitFunc(t, Kd[0] - sigma[0], Kd[1] + sigma[1], Kd[2] - sigma[2]) )
     #plot fR vs L(free)
     #plot fit
     #show Kd and Basepair number
-    print("")
-    return plots
+  print("")
+  return plots
 
 
 if __name__ == "__main__":
