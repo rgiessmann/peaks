@@ -5,7 +5,8 @@ import sys
 import getopt
 import numpy
 import scipy
-
+from scipy.optimize import curve_fit
+import matplotlib.pyplot as plt
    
 
 def main(argv=""):
@@ -439,16 +440,33 @@ def fit_data_determine_kd():
            if peak.footprinted_peak = 1:
               Lfree_conc = trace.Lfree_conc
               fR = trace_peak.fractional_occupancy 
-              Kd_values = curve_fit(fitFunc, Lfree_conc, fR)
+              Kd_values, Variances = curve_fit(fitFunc, Lfree_conc, fR)
       #for each footprinting site
         # -> results of all traces fitted at the same time?
       #fit fR(n)=L(free)/(Kd(n)+L(free))
       #add result to trace list
     #end loop
     print("")
-    return Kd_values
+    return Kd_values, variances
 
 def plot_data():
+   for peak in ref.peaks:
+        for peak in trace.peaks:
+           if peak.footprinted_peak = 1:
+              plt.ylabel('Fractional Occupancy', fontsize = 16)
+              plt.xlabel('Free Ligand Concentration', fontsize = 16)
+              plt.title(trace.size_bp)
+              #plt.text(60, .025, trace.Kd_values, variances)
+              #datapoints and errorbars
+              plt.errorbar(Lfree_conc, fR, fmt = 'ro', yerr = 0.2)
+              sigma = [Variance[0,0], \
+              Variance[1,1], \
+              Variance[2,2] \
+               ]
+              plt.plot(t, fitFunc(t, Kd[0], Kd[1], Kd[2]),\
+              t, fitFunc(t, Kd[0] + sigma[0], Kd[1] - sigma[1], Kd[2] + sigma[2]),\
+              t, fitFunc(t, Kd[0] - sigma[0], Kd[1] + sigma[1], Kd[2] - sigma[2])\  
+                )
     #plot fR vs L(free)
     #plot fit
     #show Kd and Basepair number
