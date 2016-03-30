@@ -433,6 +433,7 @@ def fit_data_determine_kd():
     #read an append trace list
     #begin loop
       #for each footprinting site
+        # -> results of all traces fitted at the same time?
       #fit fR(n)=L(free)/(Kd(n)+L(free))
       #add result to trace list
     #end loop
