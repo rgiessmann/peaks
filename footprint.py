@@ -331,20 +331,42 @@ def determine_factor_numerically(ref, trace):
     return optimal_factor
 
 def determine_factor_single_peak():
+   
+    optimal_factor = 1
+    rmsd_old = calculate_deviance_for_all_peaks(ref,trace)
+
+    ## store original data
+    for peak in trace.peaks:
+        peak.peak_height_original = peak.peak_height
+        
     #define reference
         #loop1 begin
      #for each trace
      #loop2 begin
-       #calculate factor for each Peak to bring to size of reference peak
-       #calculate new areas for every peak with factor 
-       #calculate deviance between each peak and reference
-       #list deviance_new (including factor)
-       #compare deviance_new with deviance_old, if better deviance_new -> deviance_old, else delete deviance_new
-     #end loop2
-     #put factor from deviance_old to trace_list (for right trace)
-    #end loop1
+    for peak in ref.peaks:
+        for peak in trace.peaks:
+           ref_peak.peak_height = trace_peak.peak_height * factor
+           correct_peaks_with_factor(trace,factor)
+            
+        #use calculate_deviance_for_all_peaks with trace and ref
+        rmsd_new = calculate_deviance_for_all_peaks(ref,trace)
+     
+        ## restore all peak heights to original height
+        for peak in trace.peaks:
+            peak.peak_height = peak.peak_height_original 
+        
+        ## DEBUG        
+        #list deviance_new (including factor)
+        print(str(factor)+" : "+str(rmsd_new))
+
+        #compare deviance_new with deviance_old, if better deviance_new -> deviance_old, else delete deviance_new
+
+        if rmsd_new < rmsd_old:
+            rmsd_old = rmsd_new
+            optimal_factor = factor
+            
     print("")
-    return
+    return optimal_factor
 
 
 def correct_peaks_with_factor(trace, factor):
