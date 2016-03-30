@@ -385,7 +385,8 @@ def which_peaks_differ(threshold=0.10):
       #compare peak areas of traces with different concentration
       #if difference >0.1 add peak to trace list
     #end loop
-     for ref_peak,trace_peak in give_all_clustered_peaks(ref,trace):
+     for peak in ref.peaks:
+        for peak in trace.peaks:
         if ref_peak.peak_height - trace_peak.peak_height > threshold:
            peak.footprinted_peak = 1
          else
