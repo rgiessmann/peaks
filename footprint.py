@@ -35,57 +35,6 @@ def main(argv=""):
     if remaining_args != []:
         print("You provided too many options. Call me with -h to learn more.")
 
-    ## TODO: check input_files; split   
-
-    ## WARNING: this is step-wise implementing and testing the whole script
-#    trace_list = get_data(None)
-    trace_list = get_data()
-    
-    trace=trace_list[6]
-    
-    conc_0_traces = []
-    for t in trace_list:
-        if t.Ltot_conc == 0:
-            conc_0_traces.append(t)
-
-    ref = conc_0_traces[2]
-    
-    cluster_peaks(ref,conc_0_traces)    
-    
-    print("+++")
-    print("WARNING: control traces are not uniform; clustering did not work for the following peaks:")
-    for t in conc_0_traces:
-        print("---")
-        print(t.file_name)
-        for p in t.peaks:
-            if p.cluster == 0:
-                print(p)
-    print("+++")
-
-                
-    for i,j in give_all_clustered_peaks(ref,conc_0_traces[1]): print(i.cluster,i.size_bp,j.size_bp)
-    
-    
-    cluster_peaks(ref,[trace])
-    print("uncorrected RMSD of peaks: "+str(calculate_deviance_for_all_peaks(ref,trace)))
-    #for i,j in give_all_clustered_peaks(trace_list[0], trace_list[1]): print(i.peak_height,j.peak_height)
-
-    for i,j in give_all_clustered_peaks(ref,trace): print(i.peak_height,j.peak_height)
-
-    factor = determine_factor_numerically(ref, trace, 1, 0)
-    print("optimal factor : "+str(factor))
-    correct_peaks_with_factor(trace,factor)
-
-    print("Corrected peak pairs: ")
-    for i,j in give_all_clustered_peaks(ref,trace): print(i.cluster,i.size_bp,i.peak_height,j.peak_height)
-
-    add_fractional_occupancies(ref,trace)
-    print("Lfree : "+str(calculate_free_ligand_concentration(ref,trace)))
-    ## DEBUG
-    #print([peak.cluster for peak in peak_list])
-
-    print("done.")
-
     return
 
 
@@ -173,17 +122,10 @@ def get_data(read_filelist="/Users/rgiessmann/Desktop/HexA.csv"):
             sample_files = []
             for row in csv_reader:
                 sample_files.append(row)
-            
-        #sample_files = [
-        #["103-23-16-6-33 PM.fsa","B","0","0.1"],
-        #["113-23-16-7-08 PM.fsa","B","0","0.1"],
-        #]
-        
+                  
         sample_file_names = []
         for i in sample_files:
             sample_file_names.append(i["Sample File Name"]) 
-
-#        sample_file_names = ["103-23-16-6-33 PM.fsa", "113-23-16-7-08 PM.fsa"] 
         
         if type(read_filelist) is not list:
             read_filelist = [read_filelist]
@@ -269,18 +211,14 @@ def calculate_deviance_for_all_peaks(ref, trace, weight_twoside=1,weight_oneside
     n=0
     m=0
     for ref_peak,trace_peak in give_all_clustered_peaks(ref,trace):
-        #print(ref_peak,trace_peak)        
+        trace_peak=trace_peak[0]
         
-        ## SIMPLE VERSION        
-        
-        ## FANCY VERSION
         if ref_peak.peak_height > trace_peak.peak_height:
-            #print("calculate deviance for peak ...")
+            # deviation for potentially footprinted peaks
             deviance_for_all_peaks += (ref_peak.peak_height - trace_peak.peak_height)**2
             n+=1
         else:
-            ## deviance_for_all_peaks += 0
-            ## equals 
+            # deviation for potentially hypersensitive peaks
             deviance_for_every_peak += (ref_peak.peak_height - trace_peak.peak_height)**2
             m+=1
 
@@ -294,14 +232,22 @@ def calculate_deviance_for_all_peaks(ref, trace, weight_twoside=1,weight_oneside
     
     return value
     
-def give_all_clustered_peaks(ref,trace):
-    for peak_cluster in set([peak.cluster for peak in ref.peaks]):
-        trace_peak = [peak for peak in trace.peaks if peak.cluster == peak_cluster]
-        ref_peak = [peak for peak in ref.peaks if peak.cluster == peak_cluster]        
-        if len(trace_peak)==1 and len(ref_peak)==1:
-            yield (ref_peak[0],trace_peak[0])
-                        
+def give_all_clustered_peaks(ref,trace_list):
 
+    if type(trace_list) is not list:
+        trace_list = [trace_list]
+    for peak_cluster in set([peak.cluster for peak in ref.peaks]):
+        ref_peak = [peak for peak in ref.peaks if peak.cluster == peak_cluster]        
+        trace_peaks=[]   
+        for trace in trace_list:
+            foo=[peak for peak in trace.peaks if peak.cluster == peak_cluster]
+            if len(foo) == 1:
+                trace_peaks.append(foo[0])
+        if len(ref_peak)==1:
+            if len(trace_peaks) != len(trace_list):
+                print("WARNING: Unable to find clustered peaks for all given traces...")
+            yield (ref_peak[0],trace_peaks)
+                        
 def determine_factor_numerically(ref, trace,weight_twoside=1,weight_oneside=0):
     ## TODO: implement real optimizer via scipy.optimize()    
     
@@ -443,4 +389,4 @@ def plot_data():
 
 
 if __name__ == "__main__":
-  main(sys.argv[1:])
+    main(sys.argv[1:])
