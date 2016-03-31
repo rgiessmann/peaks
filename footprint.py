@@ -42,7 +42,7 @@ def main(argv=""):
 #    trace_list = get_data(None)
     trace_list = get_data()
     
-    trace,ref=trace_list[7], trace_list[13]
+    trace,ref=trace_list[8], trace_list[13]
     cluster_peaks(ref,[trace])
     print("uncorrected RMSD of peaks: "+str(calculate_deviance_for_all_peaks(ref,trace)))
     #for i,j in give_all_clustered_peaks(trace_list[0], trace_list[1]): print(i.peak_height,j.peak_height)
@@ -76,7 +76,7 @@ def main(argv=""):
     print("Kd : "+str(kd_values))
     print("Covar : "+str(Covar))
 
-    plot_data(ref, trace_list)
+    plot_data(trace, ref, Lfree_conc, fractional_occupancy, kd_values, Covar)
     #print(plot_data(ref, trace_list))
     
     print("done.")
@@ -461,38 +461,42 @@ def fit_data_determine_kd(ref, trace_list, Lfree_conc, Kd, fractional_occupancy)
               fR = numpy.array([fractional_occupancy]) 
               Kd_values, Covar = curve_fit(fitFunc, Lfree, fR, Kd)
       #for each footprinting site
-        # -> results of all traces fitted at the same time?
       #fit fR(n)=L(free)/(Kd(n)+L(free))
       #add result to trace list
     #end loop
     print("")
     return Kd_values, Covar
 
-def plot_data(ref, trace_list):
-  for ref_peak,trace_peak in give_all_clustered_peaks(ref,trace_list):
-           if trace_list.footprinted_peak == 1:
+def plot_data(ref, trace_list, Lfree_conc, fractional_occupancy, kd_values, Covar):
+    for ref_peak,trace_peak in give_all_clustered_peaks(ref,trace_list):
+           #if trace_peak.footprinted_peak == 1:
               plt.ylabel('Fractional Occupancy', fontsize = 16)
               plt.xlabel('Free Ligand Concentration', fontsize = 16)
-              plt.title(trace.size_bp)
-              #plt.text(60, .025, trace.Kd_values, variances)
+              plt.title(trace_peak.size_bp)
+              #plt.text(60, .025, kd_values)
               #datapoints and errorbars
-              plt.errorbar(Lfree_conc, fR, fmt = 'ro', yerr = 0.2)
-              sigma = [Variance[0,0], \
-              Variance[1,1], \
-              Variance[2,2] \
-               ]
-              plt.plot(t, fitFunc(t, Kd[0], Kd[1], Kd[2]),\
-              t, fitFunc(t, Kd[0] + sigma[0], Kd[1] - sigma[1], Kd[2] + sigma[2]),\
-              t, fitFunc(t, Kd[0] - sigma[0], Kd[1] + sigma[1], Kd[2] - sigma[2]) )
+              plt.errorbar(Lfree_conc, fractional_occupancy, fmt = 'ro', yerr = 0.2)
+              #sigma = [Covar[0,0], \
+              #Covar[1,1], \
+              #Covar[2,2] \
+              # ]
+              Lfree = numpy.array([Lfree_conc])
+              fR = numpy.array([fractional_occupancy])
+              Kd = kd_values
+              plt.plot(Lfree, fR,\
+              Lfree, fitFunc(Lfree_conc, Kd))
+              #t, fitFunc(t, Kd[0] + sigma[0], Kd[1] - sigma[1], Kd[2] + sigma[2]),\
+              #t, fitFunc(t, Kd[0] - sigma[0], Kd[1] + sigma[1], Kd[2] - sigma[2]) )
     #plot fR vs L(free)
     #plot fit
     #show Kd and Basepair number
-  print("")
-  return plots
+    plt.show()          
+    print("")
+    return 
 
-def write_data_to_csv ()
+#def write_data_to_csv ()
 
-  return
+  #return
 
 
 if __name__ == "__main__":
