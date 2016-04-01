@@ -168,17 +168,10 @@ def get_data(read_filelist="../HexA.csv"):
             sample_files = []
             for row in csv_reader:
                 sample_files.append(row)
-            
-        #sample_files = [
-        #["103-23-16-6-33 PM.fsa","B","0","0.1"],
-        #["113-23-16-7-08 PM.fsa","B","0","0.1"],
-        #]
-        
+                  
         sample_file_names = []
         for i in sample_files:
             sample_file_names.append(i["Sample File Name"]) 
-
-#        sample_file_names = ["103-23-16-6-33 PM.fsa", "113-23-16-7-08 PM.fsa"] 
         
         if type(read_filelist) is not list:
             read_filelist = [read_filelist]
@@ -232,7 +225,7 @@ def get_data(read_filelist="../HexA.csv"):
     
     return trace_list
 
-def cluster_peaks(ref,trace_list,accepted_offset=0.1):
+def cluster_peaks(ref,trace_list,accepted_offset=0.25):
     ## TODO: make this skeleton function come alive
 
     #for trace in trace_list:
@@ -256,7 +249,7 @@ def cluster_peaks(ref,trace_list,accepted_offset=0.1):
     
     return 
 
-def calculate_deviance_for_all_peaks(ref, trace, from_bp=20, to_bp=130):
+def calculate_deviance_for_all_peaks(ref, trace, weight_twoside=1,weight_oneside=0,from_bp=20, to_bp=130,):
     '''calculates the RMSD for peaks that were identified as clustered in trace _ref_, compared to _trace_, in the range (from_bp, to_bp)'''
 
     deviance_for_all_peaks = 0
@@ -264,18 +257,14 @@ def calculate_deviance_for_all_peaks(ref, trace, from_bp=20, to_bp=130):
     n=0
     m=0
     for ref_peak,trace_peak in give_all_clustered_peaks(ref,trace):
-        #print(ref_peak,trace_peak)        
+        trace_peak=trace_peak[0]
         
-        ## SIMPLE VERSION        
-        
-        ## FANCY VERSION
         if ref_peak.peak_height > trace_peak.peak_height:
-            #print("calculate deviance for peak ...")
+            # deviation for potentially footprinted peaks
             deviance_for_all_peaks += (ref_peak.peak_height - trace_peak.peak_height)**2
             n+=1
         else:
-            ## deviance_for_all_peaks += 0
-            ## equals 
+            # deviation for potentially hypersensitive peaks
             deviance_for_every_peak += (ref_peak.peak_height - trace_peak.peak_height)**2
             m+=1
 
@@ -285,23 +274,31 @@ def calculate_deviance_for_all_peaks(ref, trace, from_bp=20, to_bp=130):
     #print(rmsd_all)    
 
     ## decide what to evaluate here -- maybe something weighted, maybe not?
-    value = rmsd_all
+    value = weight_twoside*rmsd_all + weight_oneside*rmsd
     
     return value
     
-def give_all_clustered_peaks(ref,trace):
-    for peak_cluster in set([peak.cluster for peak in ref.peaks]):
-        trace_peak = [peak for peak in trace.peaks if peak.cluster == peak_cluster]
-        ref_peak = [peak for peak in ref.peaks if peak.cluster == peak_cluster]        
-        if len(trace_peak)==1 and len(ref_peak)==1:
-            yield (ref_peak[0],trace_peak[0])
-                        
+def give_all_clustered_peaks(ref,trace_list):
 
-def determine_factor_numerically(ref, trace):
+    if type(trace_list) is not list:
+        trace_list = [trace_list]
+    for peak_cluster in set([peak.cluster for peak in ref.peaks]):
+        ref_peak = [peak for peak in ref.peaks if peak.cluster == peak_cluster]        
+        trace_peaks=[]   
+        for trace in trace_list:
+            foo=[peak for peak in trace.peaks if peak.cluster == peak_cluster]
+            if len(foo) == 1:
+                trace_peaks.append(foo[0])
+        if len(ref_peak)==1:
+            if len(trace_peaks) != len(trace_list):
+                print("WARNING: Unable to find clustered peaks for all given traces...")
+            yield (ref_peak[0],trace_peaks)
+                        
+def determine_factor_numerically(ref, trace,weight_twoside=1,weight_oneside=0):
     ## TODO: implement real optimizer via scipy.optimize()    
     
     optimal_factor = 1
-    rmsd_old = calculate_deviance_for_all_peaks(ref,trace)
+    rmsd_old = calculate_deviance_for_all_peaks(ref,trace,weight_twoside,weight_oneside)
 
     ## store original data
     for peak in trace.peaks:
@@ -323,7 +320,7 @@ def determine_factor_numerically(ref, trace):
         correct_peaks_with_factor(trace,factor)
             
         #use calculate_deviance_for_all_peaks with trace and ref
-        rmsd_new = calculate_deviance_for_all_peaks(ref,trace)
+        rmsd_new = calculate_deviance_for_all_peaks(ref,trace,weight_twoside,weight_oneside)
                 
         ## restore all peak heights to original height
         for peak in trace.peaks:
@@ -500,4 +497,4 @@ def plot_data(ref, trace_list, Lfree_conc, fractional_occupancy, kd_values, Cova
 
 
 if __name__ == "__main__":
-  main(sys.argv[1:])
+    main(sys.argv[1:])
