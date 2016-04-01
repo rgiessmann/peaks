@@ -108,7 +108,7 @@ class Peak:
 class Index:
     pass    
 
-def list_traces(read_filelist="/Users/Magdalena Scharf/Desktop/HexA.csv"):
+def list_traces(read_filelist="../HexA.csv"):
     import csv
     if type(read_filelist) is not list:
             read_filelist = [read_filelist]
@@ -132,7 +132,7 @@ def list_traces(read_filelist="/Users/Magdalena Scharf/Desktop/HexA.csv"):
         w.writerow([row[1],row[0],"?","?","?"])
     return storage_traces
 
-def get_data(read_filelist="C:/Users/Magdalena Scharf/Desktop/HexA.csv"):
+def get_data(read_filelist="../HexA.csv"):
     ## WARNING : this is a non-functional skeleton function
     ## TODO: read in the data from config and input files
 
@@ -162,7 +162,7 @@ def get_data(read_filelist="C:/Users/Magdalena Scharf/Desktop/HexA.csv"):
         import csv
         trace_list = []
         ## TODO: what entries to accept?
-        config_file = "input_traces.csv"
+        config_file = "../input_traces.csv"
         with open(config_file) as g:
             csv_reader = csv.DictReader(g)
             sample_files = []
@@ -187,7 +187,7 @@ def get_data(read_filelist="C:/Users/Magdalena Scharf/Desktop/HexA.csv"):
         for file in read_filelist:
             with open(file) as f:            
                 csv_reader = csv.reader(f)
-                header = csv_reader.next()
+                header = csv_reader.__next__()
                 index = Index()
                 index.peak_height = header.index("Height")
                 index.size_bp = header.index("Size")
