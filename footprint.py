@@ -548,7 +548,7 @@ def plot_data(ref, trace_list, cluster):
 
     xdata, ydata = generate_xdata_ydata(ref,trace_list,cluster)
                 
-    plt.plot(xdata,ydata, 'ro')
+    plt.plot(xdata,ydata, 'o')
     
     plt.show()
     
