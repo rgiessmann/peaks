@@ -1,14 +1,1 @@
-
-footprint_old.gitignore.py
-
-footprint.pyc
-
-.ipynb_checkpoints/roberts_notebook-checkpoint.ipynb
-
-__pycache__/footprint.cpython-35.pyc
-
-output_traces.csv
-
-input_traces.csv
-
 *.pyc
