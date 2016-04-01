@@ -35,7 +35,7 @@ trace_list = [
         ]
 
 ref = trace_list[1]
-target = trace_list[0]
+trace = trace_list[0]
 
 
 print("Successfully set up test case data.")
@@ -63,7 +63,7 @@ def test_recognition_of_0M_traces():
 # cluster_peaks()
 #==============================================================================
 
-footprint.cluster_peaks(ref,[target])
+footprint.cluster_peaks(ref,[trace])
 
 
 def test_cluster_peaks():
@@ -73,13 +73,13 @@ def test_cluster_peaks():
     2 2.0 40.0
     3 3.0 60.0
 
-    >>> for t in target.peaks: print(t.cluster,t.size_bp,t.peak_height)
+    >>> for t in trace.peaks: print(t.cluster,t.size_bp,t.peak_height)
     1 1.07 10.0
     2 1.98 39.0
     3 3.01 61.0
     """
     for p in ref.peaks: print(p.cluster,p.size_bp,p.peak_height)
-    for t in target.peaks: print(t.cluster,t.size_bp,t.peak_height)
+    for t in trace.peaks: print(t.cluster,t.size_bp,t.peak_height)
 
 
 #==============================================================================
@@ -89,7 +89,7 @@ def test_cluster_peaks():
 
 def test_give_all_clustered_peaks():
     """
-    >>> for i,j in footprint.give_all_clustered_peaks(ref,[target]): 
+    >>> for i,j in footprint.give_all_clustered_peaks(ref,[trace]): 
     ...     print(i.cluster,i.size_bp,j[0].size_bp)
     1 1.0 1.07
     2 2.0 1.98
@@ -98,7 +98,7 @@ def test_give_all_clustered_peaks():
     >>> print(len(j))
     1
     """
-    for i,j in footprint.give_all_clustered_peaks(ref,[target]):
+    for i,j in footprint.give_all_clustered_peaks(ref,[trace]):
         print(i.cluster,i.size_bp,j[0].size_bp)
 
 
@@ -109,11 +109,101 @@ def test_give_all_clustered_peaks():
 def test_calculate_deviance_for_all_peaks():
     """
     >>> # doctest: +ELLIPSIS
-    ... footprint.calculate_deviance_for_all_peaks(ref,target) 
-    5.830...
+    ... footprint.calculate_deviance_for_all_peaks(ref, trace) 
+    7.106...
     
     """
-    print(footprint.calculate_deviance_for_all_peaks(ref,target))
+    print(footprint.calculate_deviance_for_all_peaks(ref,trace))
+
+
+#==============================================================================
+# correct_peaks_with_factor(trace, factor)
+#==============================================================================
+def test_correct_peaks_with_factor_1(trace, factor):
+    """
+    >>> original_trace = trace
+    >>> footprint.correct_peaks_with_factor(trace, 1)
+    >>> footprint.correct_peaks_with_factor(trace, 2)
+    >>> footprint.correct_peaks_with_factor(trace, 0.5)
+    >>> original_trace == trace
+    True
+    """
+    footprint.correct_peaks_with_factor(trace, 1)
+    footprint.correct_peaks_with_factor(trace, 2)
+    footprint.correct_peaks_with_factor(trace, 0.5)
+
+
+#==============================================================================
+# determine_factor_numerically():
+#==============================================================================
+
+def test_determine_factor_numerically(ref, trace, weight_smaller=1, weight_bigger=1, relative_mode=False):
+    """
+    >>> footprint.determine_factor_numerically(ref, trace, weight_smaller=1, weight_bigger=1, relative_mode=False)
+    1.01
+    """
+    print(footprint.determine_factor_numerically(ref, trace, weight_smaller=1, weight_bigger=1, relative_mode=False))
+
+
+#==============================================================================
+# determine_factor_single_peak()
+#==============================================================================
+def test_determine_factor_single_peak(ref, trace, weight_smaller=1, weight_bigger=1, relative_mode=False):
+    """
+    >>> footprint.determine_factor_single_peak(ref, trace, weight_smaller=1, weight_bigger=1, relative_mode=False)
+    1.0256410256410255
+    """
+    print(footprint.determine_factor_single_peak(ref, trace, weight_smaller=1, weight_bigger=1, relative_mode=False))
+
+
+#==============================================================================
+#  mark_footprinted_peaks()
+#==============================================================================
+
+footprint.mark_footprinted_peaks(ref, trace, threshold=0.1)
+
+def test_mark_footprinted_peaks(ref, trace, threshold=0.1):
+    """
+    >>> footprint.mark_footprinted_peaks(ref, trace, threshold=0.1)
+    >>> for ref_peak,trace_peak in footprint.give_all_clustered_peaks(ref, trace):
+    ...     print(trace_peak[0].footprinted_peak)
+    True
+    False
+    False
+    """
+
+
+#==============================================================================
+# add_fractional_occupancies()
+#==============================================================================
+
+footprint.add_fractional_occupancies(ref,trace)
+
+
+#==============================================================================
+# calculate_free_ligand_concentration()
+#==============================================================================
+
+def test_calculate_free_ligand_concentration():
+    """
+    >>> print(footprint.calculate_free_ligand_concentration(ref,trace))
+    4.95
+    """
+    footprint.calculate_free_ligand_concentration(ref,trace)
+
+
+#==============================================================================
+# fit_data_determine_kd()
+#==============================================================================
+
+def test_fit_data_determine_kd():
+    """
+    >>> footprint.fit_data_determine_kd(ref, [trace])
+    [['cluster 1', 4.9500000000000002, 0.0], ['cluster 2', 1.0, inf], ['cluster 3', 1.0, inf]]
+    """
+
+
+footprint.fit_data_determine_kd(ref, [trace])
 
 
 ## TODO: rest of tests.
