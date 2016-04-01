@@ -5,7 +5,8 @@ import sys
 import getopt
 import numpy
 import scipy
-
+from scipy.optimize import curve_fit
+import matplotlib.pyplot as plt
    
 
 def main(argv=""):
@@ -35,6 +36,51 @@ def main(argv=""):
     if remaining_args != []:
         print("You provided too many options. Call me with -h to learn more.")
 
+    ## TODO: check input_files; split   
+
+    ## WARNING: this is step-wise implementing and testing the whole script
+#    trace_list = get_data(None)
+    trace_list = get_data()
+    
+    trace,ref=trace_list[8], trace_list[13]
+    cluster_peaks(ref,[trace])
+    print("uncorrected RMSD of peaks: "+str(calculate_deviance_for_all_peaks(ref,trace)))
+    #for i,j in give_all_clustered_peaks(trace_list[0], trace_list[1]): print(i.peak_height,j.peak_height)
+
+    for i,j in give_all_clustered_peaks(ref,trace): print(i.peak_height,j.peak_height)
+    which_peaks_differ(ref, trace)
+
+    factor = determine_factor_numerically(ref, trace)
+    print("optimal factor : "+str(factor))
+    ## TODO: optimize single factor calculation!
+    #factor = determine_factor_single_peak(ref, trace)
+    #print("optimal factor 2 : "+str(factor))
+    
+    correct_peaks_with_factor(trace,factor)
+
+    print("Corrected peak pairs: ")
+    for i,j in give_all_clustered_peaks(ref,trace): print(i.peak_height,j.peak_height)
+
+    fractional_occupancy = add_fractional_occupancies(ref,trace)
+    print("fR : "+str(add_fractional_occupancies(ref,trace)))
+    Lfree_conc = calculate_free_ligand_concentration(ref,trace)
+    print("Lfree : "+str(calculate_free_ligand_concentration(ref,trace)))
+    ## DEBUG
+    #print([peak.cluster for peak in peak_list])
+    
+    #for i,j in give_all_clustered_peaks(ref,trace): print(i.peak_height,j.peak_height)
+
+    Kd = 5
+    fitFunc(Lfree_conc, Kd)
+    kd_values, Covar = fit_data_determine_kd(ref, trace, Lfree_conc, Kd, fractional_occupancy)
+    print("Kd : "+str(kd_values))
+    print("Covar : "+str(Covar))
+
+    plot_data(trace, ref, Lfree_conc, fractional_occupancy, kd_values, Covar)
+    #print(plot_data(ref, trace_list))
+    
+    print("done.")
+
     return
 
 
@@ -62,7 +108,7 @@ class Peak:
 class Index:
     pass    
 
-def list_traces(read_filelist="/Users/rgiessmann/Desktop/HexA.csv"):
+def list_traces(read_filelist="../HexA.csv"):
     import csv
     if type(read_filelist) is not list:
             read_filelist = [read_filelist]
@@ -86,7 +132,7 @@ def list_traces(read_filelist="/Users/rgiessmann/Desktop/HexA.csv"):
         w.writerow([row[1],row[0],"?","?","?"])
     return storage_traces
 
-def get_data(read_filelist="/Users/rgiessmann/Desktop/HexA.csv"):
+def get_data(read_filelist="../HexA.csv"):
     ## WARNING : this is a non-functional skeleton function
     ## TODO: read in the data from config and input files
 
@@ -116,7 +162,7 @@ def get_data(read_filelist="/Users/rgiessmann/Desktop/HexA.csv"):
         import csv
         trace_list = []
         ## TODO: what entries to accept?
-        config_file = "input_traces.csv"
+        config_file = "../input_traces.csv"
         with open(config_file) as g:
             csv_reader = csv.DictReader(g)
             sample_files = []
@@ -222,7 +268,7 @@ def calculate_deviance_for_all_peaks(ref, trace, weight_twoside=1,weight_oneside
             deviance_for_every_peak += (ref_peak.peak_height - trace_peak.peak_height)**2
             m+=1
 
-    rmsd = numpy.sqrt(deviance_for_all_peaks/n)
+    #rmsd = numpy.sqrt(deviance_for_all_peaks/n)
     rmsd_all = numpy.sqrt((deviance_for_all_peaks + deviance_for_every_peak)/(m+n))
 
     #print(rmsd_all)    
@@ -300,21 +346,42 @@ def determine_factor_numerically(ref, trace,weight_twoside=1,weight_oneside=0):
 
     return optimal_factor
 
-def determine_factor_single_peak():
+def determine_factor_single_peak(ref, trace):
+   
+    optimal_factor = 1
+    rmsd_old = calculate_deviance_for_all_peaks(ref,trace)
+
+    ## store original data
+    for peak in trace.peaks:
+        peak.peak_height_original = peak.peak_height
+        
     #define reference
         #loop1 begin
      #for each trace
      #loop2 begin
-       #calculate factor for each Peak to bring to size of reference peak
-       #calculate new areas for every peak with factor 
-       #calculate deviance between each peak and reference
-       #list deviance_new (including factor)
-       #compare deviance_new with deviance_old, if better deviance_new -> deviance_old, else delete deviance_new
-     #end loop2
-     #put factor from deviance_old to trace_list (for right trace)
-    #end loop1
+    for ref_peak,trace_peak in give_all_clustered_peaks(ref,trace):
+        factor =  ref_peak.peak_height / trace_peak.peak_height 
+        correct_peaks_with_factor(trace,factor)
+            
+        #use calculate_deviance_for_all_peaks with trace and ref
+        rmsd_new = calculate_deviance_for_all_peaks(ref,trace)
+     
+        ## restore all peak heights to original height
+        for peak in trace.peaks:
+            peak.peak_height = peak.peak_height_original 
+        
+        ## DEBUG        
+        #list deviance_new (including factor)
+        print(str(factor)+" : "+str(rmsd_new))
+
+        #compare deviance_new with deviance_old, if better deviance_new -> deviance_old, else delete deviance_new
+
+        if rmsd_new < rmsd_old:
+            rmsd_old = rmsd_new
+            optimal_factor = factor
+            
     print("")
-    return
+    return optimal_factor
 
 
 def correct_peaks_with_factor(trace, factor):
@@ -327,14 +394,20 @@ def correct_peaks_with_factor(trace, factor):
         peak.peak_height = peak.peak_height * factor
     return trace
 
-def which_peaks_differ(threshold=0.10):
+def which_peaks_differ(ref, trace):
     #begin loop
       #for each peak 
       #compare peak areas of traces with different concentration
       #if difference >0.1 add peak to trace list
     #end loop
+    for ref_peak,trace_peak in give_all_clustered_peaks(ref,trace):
+         if ref_peak.peak_height - trace_peak.peak_height > 0.1*trace_peak.peak_height and ref.Ltot_conc != trace.Ltot_conc:
+           trace_peak.footprinted_peak = 1
+         else:
+           trace_peak.footprinted_peak = 0
+        
     print("")
-    return peak_list
+    return 
 
 def add_fractional_occupancies(ref,trace):
     #read and append trace list
@@ -344,10 +417,10 @@ def add_fractional_occupancies(ref,trace):
         trace_peak.fractional_occupancy = 1 - trace_peak.peak_height / ref_peak.peak_height        
         #divide peak area with area of biggest of the 0M peaks (at same bp)
         #add result to trace_list (fR)
-    
+    fractional_occupancy = trace_peak.fractional_occupancy
     #end loop
     print("")
-    return 
+    return fractional_occupancy
 
 def calculate_free_ligand_concentration(ref,trace):
     #read and append trace list
@@ -369,23 +442,58 @@ def calculate_free_ligand_concentration(ref,trace):
     print("")
     return Lfree_conc
 
+def fitFunc(Lfree_conc, Kd):
+    #for ref_peak,trace_peak in give_all_clustered_peaks(ref,trace):
+        #Func = (Lfree_conc)/(Lfree_conc * Kd)
+    #Kd = 
+    return (Lfree_conc)/(Lfree_conc + Kd)
 
-def fit_data_determine_kd():
+def fit_data_determine_kd(ref, trace_list, Lfree_conc, Kd, fractional_occupancy):
     #read an append trace list
     #begin loop
+    #fitFunc = (Lfree_conc)/(Lfree_conc + Kd)
+    for ref_peak,trace_peak in give_all_clustered_peaks(ref,trace_list):
+           if trace_peak.footprinted_peak == 1:
+              Lfree = numpy.array([Lfree_conc])
+              fR = numpy.array([fractional_occupancy]) 
+              Kd_values, Covar = curve_fit(fitFunc, Lfree, fR, Kd)
       #for each footprinting site
       #fit fR(n)=L(free)/(Kd(n)+L(free))
       #add result to trace list
     #end loop
     print("")
-    return kd_values
+    return Kd_values, Covar
 
-def plot_data():
+def plot_data(ref, trace_list, Lfree_conc, fractional_occupancy, kd_values, Covar):
+    for ref_peak,trace_peak in give_all_clustered_peaks(ref,trace_list):
+           #if trace_peak.footprinted_peak == 1:
+              plt.ylabel('Fractional Occupancy', fontsize = 16)
+              plt.xlabel('Free Ligand Concentration', fontsize = 16)
+              plt.title(trace_peak.size_bp)
+              #plt.text(60, .025, kd_values)
+              #datapoints and errorbars
+              plt.errorbar(Lfree_conc, fractional_occupancy, fmt = 'ro', yerr = 0.2)
+              #sigma = [Covar[0,0], \
+              #Covar[1,1], \
+              #Covar[2,2] \
+              # ]
+              Lfree = numpy.array([Lfree_conc])
+              fR = numpy.array([fractional_occupancy])
+              Kd = kd_values
+              plt.plot(Lfree, fR,\
+              Lfree, fitFunc(Lfree_conc, Kd))
+              #t, fitFunc(t, Kd[0] + sigma[0], Kd[1] - sigma[1], Kd[2] + sigma[2]),\
+              #t, fitFunc(t, Kd[0] - sigma[0], Kd[1] + sigma[1], Kd[2] - sigma[2]) )
     #plot fR vs L(free)
     #plot fit
     #show Kd and Basepair number
+    plt.show()          
     print("")
-    return plots
+    return 
+
+#def write_data_to_csv ()
+
+  #return
 
 
 if __name__ == "__main__":
