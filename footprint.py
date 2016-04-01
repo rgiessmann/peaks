@@ -506,36 +506,56 @@ def fit_data_determine_kd(ref, trace_list):
     return KD_matrix
 
 
-def plot_data(ref, trace_list, Lfree_conc, fractional_occupancy, kd_values, Covar):
+def generate_xdata_ydata(ref,trace_list,cluster):
+    """
+    
+    """    
+    
+    xdata = []
+    ydata = []    
+    
     for ref_peak,trace_peaks in give_all_clustered_peaks(ref,trace_list):
-           #if trace_peak.footprinted_peak == 1:
-              plt.ylabel('Fractional Occupancy', fontsize = 16)
-              plt.xlabel('Free Ligand Concentration', fontsize = 16)
-              plt.title(trace_peak.size_bp)
-              #plt.text(60, .025, kd_values)
-              #datapoints and errorbars
-              plt.errorbar(Lfree_conc, fractional_occupancy, fmt = 'ro', yerr = 0.2)
-              #sigma = [Covar[0,0], \
-              #Covar[1,1], \
-              #Covar[2,2] \
-              # ]
-              Lfree = numpy.array([Lfree_conc])
-              fR = numpy.array([fractional_occupancy])
-              Kd = kd_values
 
-              plt.plot(Lfree, fR,\
-              Lfree, fitFunc(Lfree_conc, Kd))
-              #t, fitFunc(t, Kd[0] + sigma[0], Kd[1] - sigma[1], Kd[2] + sigma[2]),\
-              #t, fitFunc(t, Kd[0] - sigma[0], Kd[1] + sigma[1], Kd[2] - sigma[2]) )
-    #plot fR vs L(free)
-    #plot fit
-    #show Kd and Basepair number
-    plt.show()          
-    print("")
+        ## assumes that there is only one ref_peak with correct cluster number
+        if ref_peak.cluster == cluster:
+            
+            for trace_peak in trace_peaks:        
+                ## DEBUG
+                #print(ref_peak,trace_peak)            
+                
+                ## TODO: can we truly assume this all the time?!
+                xdata.append(0) #ref.Ltot_conc)
+                ydata.append(0) #ref_peak.fractional_occupancy)
+                ## alternative:
+                # xdata.append(ref.Ltot_conc)
+                # ydata.append(ref_peak.fractional_occupancy)
+                ## -> doesn't work, because fractional_occupancies are not set for ref, so far...
+        
+                if trace_peak.footprinted_peak == True:
+                    xdata.append(calculate_free_ligand_concentration(ref, [trace for trace in trace_list if trace_peak in trace.peaks][0]))
+                    ydata.append(trace_peak.fractional_occupancy)
+            break
+    return xdata, ydata
+            
+
+def plot_data(ref, trace_list, cluster):
+
+    plt.title("Cluster " + str(cluster))
+    plt.ylabel('Fractional Occupancy', fontsize = 16)
+    plt.xlabel('Free Ligand Concentration', fontsize = 16)
+    plt.ylim([-0.1, 1.1])
+    plt.xlim([-1, 10.1])
+
+    xdata, ydata = generate_xdata_ydata(ref,trace_list,cluster)
+                
+    plt.plot(xdata,ydata, 'ro')
+    
+    plt.show()
+    
     return 
 
-#def write_data_to_csv ()
 
+#def write_data_to_csv(KD_matrix):
   #return
 
 

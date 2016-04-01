@@ -205,6 +205,8 @@ def test_fit_data_determine_kd():
 
 footprint.fit_data_determine_kd(ref, [trace])
 
+footprint.plot_data(ref, [trace], 1)
+
 
 ## TODO: rest of tests.
 
