@@ -36,48 +36,7 @@ def main(argv=""):
     if remaining_args != []:
         print("You provided too many options. Call me with -h to learn more.")
 
-    ## TODO: check input_files; split   
-
-    ## WARNING: this is step-wise implementing and testing the whole script
-#    trace_list = get_data(None)
-    trace_list = get_data()
-    
-    trace,ref=trace_list[8], trace_list[13]
-    cluster_peaks(ref,[trace])
-    print("uncorrected RMSD of peaks: "+str(calculate_deviance_for_all_peaks(ref,trace)))
-    #for i,j in give_all_clustered_peaks(trace_list[0], trace_list[1]): print(i.peak_height,j.peak_height)
-
-    for i,j in give_all_clustered_peaks(ref,trace): print(i.peak_height,j.peak_height)
-    which_peaks_differ(ref, trace)
-
-    factor = determine_factor_numerically(ref, trace)
-    print("optimal factor : "+str(factor))
-    ## TODO: optimize single factor calculation!
-    #factor = determine_factor_single_peak(ref, trace)
-    #print("optimal factor 2 : "+str(factor))
-    
-    correct_peaks_with_factor(trace,factor)
-
-    print("Corrected peak pairs: ")
-    for i,j in give_all_clustered_peaks(ref,trace): print(i.peak_height,j.peak_height)
-
-    fractional_occupancy = add_fractional_occupancies(ref,trace)
-    print("fR : "+str(add_fractional_occupancies(ref,trace)))
-    Lfree_conc = calculate_free_ligand_concentration(ref,trace)
-    print("Lfree : "+str(calculate_free_ligand_concentration(ref,trace)))
-    ## DEBUG
-    #print([peak.cluster for peak in peak_list])
-    
-    #for i,j in give_all_clustered_peaks(ref,trace): print(i.peak_height,j.peak_height)
-
-    Kd = 5
-    fitFunc(Lfree_conc, Kd)
-    kd_values, Covar = fit_data_determine_kd(ref, trace, Lfree_conc, Kd, fractional_occupancy)
-    print("Kd : "+str(kd_values))
-    print("Covar : "+str(Covar))
-
-    plot_data(trace, ref, Lfree_conc, fractional_occupancy, kd_values, Covar)
-    #print(plot_data(ref, trace_list))
+ ## -> find test cases in test/ directory!
     
     print("done.")
 
