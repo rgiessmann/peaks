@@ -406,10 +406,8 @@ def add_fractional_occupancies(ref,trace):
     """
 
     for ref_peak,trace_peaks in give_all_clustered_peaks(ref,trace):
-        ## works for one trace only
-        trace_peak = trace_peaks[0]
-
-        trace_peak.fractional_occupancy = 1 - trace_peak.peak_height / ref_peak.peak_height        
+        for trace_peak in trace_peaks:
+            trace_peak.fractional_occupancy = 1 - trace_peak.peak_height / ref_peak.peak_height        
 
     return
 
