@@ -544,10 +544,22 @@ def plot_data(ref, trace_list, cluster):
     plt.ylim([-0.1, 1.1])
     plt.xlim([-1, 10.1])
 
-    xdata, ydata = generate_xdata_ydata(ref,trace_list,cluster)
-                
+    ## plot points
+    xdata, ydata = generate_xdata_ydata(ref,trace_list,cluster)                
     plt.plot(xdata,ydata, 'o')
+
+
+    ## plot line
+    kd_matrix = fit_data_determine_kd(ref, trace_list)
+    kd = [entry[1] for entry in kd_matrix if entry[0] == "cluster "+str(cluster)]
+
+    import numpy
+
+    x = numpy.linspace(0,15,1000) # 100 linearly spaced numbers
+    y = fitFunc_fR(x,kd)
+    plt.plot(x,y)
     
+    ## show plot
     plt.show()
     
     return 
