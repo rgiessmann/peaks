@@ -509,9 +509,10 @@ def fit_data_determine_kd(ref, trace_list):
             # ydata.append(ref_peak.fractional_occupancy)
             ## -> doesn't work, because fractional_occupancies are not set for ref, so far...
 
-            if trace_peak.footprinted_peak == True:
-                xdata.append(calculate_free_ligand_concentration(ref, [trace for trace in trace_list if trace_peak in trace.peaks][0]))
-                ydata.append(trace_peak.fractional_occupancy)
+            if "footprinted_peak" in vars(trace_peak):
+                if trace_peak.footprinted_peak == True:
+                    xdata.append(calculate_free_ligand_concentration(ref, [trace for trace in trace_list if trace_peak in trace.peaks][0]))
+                    ydata.append(trace_peak.fractional_occupancy)
                 
             ## TODO: shall we catch out clusters with no footprinted peaks at all?
             ## ...
