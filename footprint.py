@@ -583,7 +583,7 @@ def plot_data(ref, trace_list, cluster):
 
     import numpy
 
-    x = numpy.linspace(0,15,1000) # 100 linearly spaced numbers
+    x = numpy.linspace(0,15,1000) # linearly spaced numbers
     y = fitFunc_fR(x,kd)
     plt.plot(x,y)
     
