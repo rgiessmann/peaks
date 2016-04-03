@@ -53,6 +53,6 @@ def generate_data_set(rtot = 0.1, peaks_bp = np.arange(1,3,1), footprinted_peaks
             trace_list[-1].peaks.append(footprint.Peak(peak_bp, peak_height))
     
     ## DEBUG        
-    print(trace_list)
+    #print(trace_list)
     
     return trace_list

@@ -25,21 +25,22 @@ import numpy as np
 ## set conditions for data set generation
 
 
-rtot = 0.2
+rtot = 0.1
 
 ## easy case
-peaks_bp = np.arange(1,3,1)
-footprinted_peaks_bp_and_kd = [[1,1]]
-lfree_concs = np.arange(1,15,5)
+#peaks_bp = np.arange(1,3,1)
+#footprinted_peaks_bp_and_kd = [[1,1]]
+#lfree_concs = np.arange(1,15,5)
 
 sd_bp = 0.1
 sd_height = 5
 
 ## advanced case
 #==============================================================================
-# peaks_bp = np.arange(1,20,1)
-# footprinted_peaks_bp_and_kd = [[5,1],[6,0.5],[7,0.8]]
-# lfree_concs = np.arange(0.1,15,3) ## TODO: multiple times
+peaks_bp = np.arange(1,20,1)
+footprinted_peaks_bp_and_kd = [[5,0.1],[6,0.5],[7,0.8]]
+#lfree_concs = np.arange(0.1,15,3) ## TODO: multiple times
+lfree_concs = np.random.random_integers(1,15,30) ## gets 30 random numbers in [1,15]
 #==============================================================================
 
 
@@ -173,6 +174,7 @@ def test_determine_factor_single_peak(ref, trace, weight_smaller=1, weight_bigge
 #==============================================================================
 
 for t in traces:
+    print(t)
     footprint.mark_footprinted_peaks(ref, t)
 
 def test_mark_footprinted_peaks(ref, trace):
@@ -192,8 +194,10 @@ def test_mark_footprinted_peaks(ref, trace):
 
 footprint.add_fractional_occupancies(ref,traces)
 
-for t in traces:
-    print([peak.fractional_occupancy for peak in t.peaks])
+#for t in traces:
+#    print([peak.fractional_occupancy for peak in t.peaks])
+## -> doesn't work if peaks are not clustered together! -> 'Peak' object has no attribute 'fractional_occupancy'
+
 
 
 #==============================================================================
@@ -221,8 +225,10 @@ def test_fit_data_determine_kd():
 
 footprint.fit_data_determine_kd(ref, traces)
 
-footprint.plot_data(ref, traces, 1)
-footprint.plot_data(ref, traces, 2)
+footprint.plot_data(ref, traces, 4)
+footprint.plot_data(ref, traces, 5)
+footprint.plot_data(ref, traces, 6)
+footprint.plot_data(ref, traces, 7)
 
 
 ## TODO: rest of tests.
@@ -246,4 +252,4 @@ print("Done.")
 
 if __name__ == "__main__":
     import doctest
-    doctest.testmod()
+    #doctest.testmod()
