@@ -2,7 +2,6 @@
 
 ## workaround for relative imports...
 import sys
-import imp
 from pathlib import Path # if you haven't already done so
 root = Path(__file__).resolve().parents[1].as_posix()
 # For older Python:
@@ -13,36 +12,38 @@ sys.path.append(root)
 
 
 import footprint
-from footprint import Trace, Peak
 
 
 #==============================================================================
 # Import test set data 
 #==============================================================================
 
-## This is the data for this simple test case:
-trace_list = [
-    Trace(file_name = "01-18-16-35-11 AM.fsa", dye_color = "B", Ltot_conc = 0, Rtot_conc = 0.1, peaks=[
-    Peak(1,20),
-    Peak(2,40),
-    Peak(3,60)    
-    ]),
-    Trace(file_name = "01-18-16-11-27 AM.fsa", dye_color = "B", Ltot_conc = 5, Rtot_conc = 0.1, peaks=[
-    Peak(1.07,10),
-    Peak(1.98,39),
-    Peak(3.01,61)
-    ]),
-    Trace(file_name = "01-19-16-35-11 AM.fsa", dye_color = "B", Ltot_conc = 15, Rtot_conc = 0.1, peaks=[
-    Peak(1.01,5),
-    Peak(2,21),
-    Peak(3,59)    
-    ]),
-    Trace(file_name = "02-19-16-35-11 AM.fsa", dye_color = "B", Ltot_conc = 15, Rtot_conc = 0.1, peaks=[
-    Peak(1.01,5.5),
-    Peak(2,19),
-    Peak(3,59)    
-    ]),
-    ]
+import generate_large_data_set
+import numpy as np
+
+
+## set conditions for data set generation
+
+
+rtot = 0.2
+
+## easy case
+peaks_bp = np.arange(1,3,1)
+footprinted_peaks_bp_and_kd = [[1,1]]
+lfree_concs = np.arange(1,15,5)
+
+sd_bp = 0.1
+sd_height = 5
+
+## advanced case
+#==============================================================================
+# peaks_bp = np.arange(1,20,1)
+# footprinted_peaks_bp_and_kd = [[5,1],[6,0.5],[7,0.8]]
+# lfree_concs = np.arange(0.1,15,3) ## TODO: multiple times
+#==============================================================================
+
+
+trace_list = generate_large_data_set.generate_data_set(rtot, peaks_bp, footprinted_peaks_bp_and_kd , lfree_concs, sd_bp, sd_height)
 
 ref = trace_list[0]
 traces = trace_list[1:]
@@ -172,13 +173,13 @@ def test_determine_factor_single_peak(ref, trace, weight_smaller=1, weight_bigge
 #==============================================================================
 
 for t in traces:
-    footprint.mark_footprinted_peaks(ref, t, threshold=0.1)
+    footprint.mark_footprinted_peaks(ref, t)
 
-def test_mark_footprinted_peaks(ref, trace, threshold=0.1):
+def test_mark_footprinted_peaks(ref, trace):
     """
-    >>> # footprint.mark_footprinted_peaks(ref, traces, threshold=0.1)
-    >>> # for ref_peak,trace_peaks in footprint.give_all_clustered_peaks(ref, traces):
-    ... #    print([trace_peak.footprinted_peak for trace_peak in trace_peaks])
+    >>> footprint.mark_footprinted_peaks(ref, traces, threshold=0.1)
+    >>> for ref_peak,trace_peaks in footprint.give_all_clustered_peaks(ref, traces):
+    ...    print([trace_peak.footprinted_peak for trace_peak in trace_peaks])
     True
     False
     False
