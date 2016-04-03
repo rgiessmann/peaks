@@ -224,6 +224,14 @@ def calculate_deviance_for_all_peaks(ref, trace, weight_smaller=1,weight_bigger=
     m=0
     
     for ref_peak,trace_peaks in give_all_clustered_peaks(ref,trace):
+
+        ## WORKAROUND for single trace mode
+        # if there are no peaks clustered to the ref_peak, they cannot be included --> continue with next pair
+        if trace_peaks == []:
+            print("WARNING: Not all peaks match -- omitting deviation for non-comparable peaks.")
+            continue
+
+
         ## allows to calculate deviance for one trace only
         trace_peak=trace_peaks[0]
         
@@ -336,6 +344,11 @@ def determine_factor_single_peak(ref, trace, weight_smaller=1, weight_bigger=1, 
         
     for ref_peak,trace_peaks in give_all_clustered_peaks(ref,trace):
 
+        ## WORKAROUND for single trace mode
+        # if there are no peaks clustered to the ref_peak, they cannot be used --> continue with next cycle
+        if trace_peaks == []:
+            continue
+
         ## works with one trace only 
         trace_peak = trace_peaks[0]
         
@@ -388,6 +401,15 @@ def mark_footprinted_peaks(ref, trace, threshold=0.1):
     """
 
     for ref_peak,trace_peaks in give_all_clustered_peaks(ref,trace):
+
+        ##DEBUG
+        #print(ref_peak,trace_peaks)
+        
+        ## WORKAROUND for single trace mode
+        # if there are no peaks clustered to the ref_peak, they cannot be marked --> return immediately
+        if trace_peaks == []:
+            return
+        
         ## works for one trace only
         trace_peak = trace_peaks[0]
         
@@ -424,6 +446,12 @@ def calculate_free_ligand_concentration(ref,trace):
 
     sum_fractional_occupancies = 0
     for ref_peak,trace_peaks in give_all_clustered_peaks(ref,trace):
+
+        ## WORKAROUND for single trace mode
+        # if there are no peaks clustered to the ref_peak, they don't need to be considered --> continue with next cycle
+        if trace_peaks == []:
+            continue
+        
         ## works for one trace only
         trace_peak = trace_peaks[0]
 
