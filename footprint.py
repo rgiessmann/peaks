@@ -406,9 +406,9 @@ def mark_footprinted_peaks(ref, trace, threshold=0.1):
         #print(ref_peak,trace_peaks)
         
         ## WORKAROUND for single trace mode
-        # if there are no peaks clustered to the ref_peak, they cannot be marked --> return immediately
+        # if there are no peaks clustered to the ref_peak, they cannot be marked --> continue with next cycle
         if trace_peaks == []:
-            return
+            continue
         
         ## works for one trace only
         trace_peak = trace_peaks[0]
@@ -450,14 +450,18 @@ def calculate_free_ligand_concentration(ref,trace):
         ## WORKAROUND for single trace mode
         # if there are no peaks clustered to the ref_peak, they don't need to be considered --> continue with next cycle
         if trace_peaks == []:
+            #print("Skipping in calc_Lfree_conc")
             continue
         
         ## works for one trace only
         trace_peak = trace_peaks[0]
 
+        ## DEBUG
+        #print(trace_peak)
+        
         if trace_peak.footprinted_peak:
             sum_fractional_occupancies += trace_peak.fractional_occupancy
-        
+    
     ## DEBUG
     #print(sum_fractional_occupancies)        
         
@@ -509,10 +513,10 @@ def fit_data_determine_kd(ref, trace_list):
             # ydata.append(ref_peak.fractional_occupancy)
             ## -> doesn't work, because fractional_occupancies are not set for ref, so far...
 
-            if "footprinted_peak" in vars(trace_peak):
-                if trace_peak.footprinted_peak == True:
-                    xdata.append(calculate_free_ligand_concentration(ref, [trace for trace in trace_list if trace_peak in trace.peaks][0]))
-                    ydata.append(trace_peak.fractional_occupancy)
+
+            if trace_peak.footprinted_peak == True:
+                xdata.append(calculate_free_ligand_concentration(ref, [trace for trace in trace_list if trace_peak in trace.peaks][0]))
+                ydata.append(trace_peak.fractional_occupancy)
                 
             ## TODO: shall we catch out clusters with no footprinted peaks at all?
             ## ...
