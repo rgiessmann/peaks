@@ -7,7 +7,12 @@ import numpy
 import scipy
 from scipy.optimize import curve_fit
 import matplotlib.pyplot as plt
-   
+
+
+## turn on logging
+logging.basicConfig(level=logging.INFO)
+global log
+log = logging   
 
 def main(argv=""):
 
@@ -22,7 +27,7 @@ def main(argv=""):
         ## DEBUG: 
         # print(opts,remaining_args)
     except getopt.GetoptError:
-       print('You provided unusual arguments. Call me with -h to learn more.')
+       log.fatal('You provided unusual arguments. Call me with -h to learn more.')
        sys.exit(2)
     for opt, arg in opts:
        if opt in ('-h', '--help'):
@@ -33,7 +38,7 @@ def main(argv=""):
        if opt in ('-i','-input-file'):
            input_file = arg
     if remaining_args != []:
-        print("You provided too many options. Call me with -h to learn more.")
+        log.error("You provided too many options. Call me with -h to learn more.")
 
  ## -> find test cases in test/ directory!
     
@@ -94,7 +99,7 @@ def list_traces(read_filelist="../HexA.csv"):
         w.writerow([row[1],row[0],"?","?","?"])
     return storage_traces
 
-def get_data(read_filelist="../HexA.csv"):
+def get_data(read_filelist="../HexA.csv", config_file="../input_traces.csv"):
     """
     Reads data from read_filelist, and returns an object containing all read
     information.
@@ -110,8 +115,6 @@ def get_data(read_filelist="../HexA.csv"):
     trace_list = []
     
     ## TODO: what entries to accept?
-
-    config_file = "../input_traces.csv"
     with open(config_file) as g:
         csv_reader = csv.DictReader(g)
         sample_files = []
@@ -135,14 +138,18 @@ def get_data(read_filelist="../HexA.csv"):
             index.size_bp = header.index("Size")
             index.file_name = header.index('Sample File Name')
             index.sample_name = header.index('Sample Name')
-            index.dye = len(header)
-            index.sample_peak = len(header)+1
+            print(header)
             
             for row in csv_reader:
                 #rules for entry acceptance?
 
-                if True: #split_combined_fields == 
+                if "Dye/Sample Peak" in header: #split_combined_fields == 
                     row.extend(row[header.index('Dye/Sample Peak')].split(","))
+                    index.dye = len(header)
+                    index.sample_peak = len(header)+1
+                else:
+                    index.dye = header.index("Dye")
+                    index.sample_peak = header.index("Sample Peak")
                 if row[index.file_name] in sample_file_names and "B" in row[index.dye]:
                     # trace already in trace_list?                                        
                     if row[index.file_name] not in storage_traces:
@@ -200,16 +207,16 @@ def cluster_peaks(ref,trace_list,accepted_offset=0.25):
     return 
 
 
-def calculate_deviance_for_all_peaks(ref, trace, weight_smaller=1,weight_bigger=0,relative_mode=False, from_bp=20, to_bp=130,):
+def calculate_deviance_for_all_peaks(ref, trace, weight_smaller=1,weight_bigger=1, weight_by_inverse_height=False, from_bp=20, to_bp=125):
     '''
-    Calculates the RMSD for peaks that were identified as clustered in ref, 
+    Calculates the area between peaks that were identified as clustered in ref, 
     compared to trace. Allows for comparison of two traces only.
     
     
     Options weight_smaller, weight_bigger are used to consider only peaks from 
     trace which are smaller or bigger, respectively, than the reference peak.
     
-    Option relative_mode allows to calculate the deviation in relative terms to
+    Option //BROKE relative_mode allows to calculate the deviation in relative terms to
     the reference peak.
     
     ## TODO: 
@@ -220,8 +227,8 @@ def calculate_deviance_for_all_peaks(ref, trace, weight_smaller=1,weight_bigger=
 
     deviance_for_smaller_peaks = 0
     deviance_for_bigger_peaks = 0        
-    n=0
-    m=0
+    num_smaller=0
+    num_bigger=0
     
     for ref_peak,trace_peaks in give_all_clustered_peaks(ref,trace):
         ## WORKAROUND for single trace mode
@@ -229,31 +236,38 @@ def calculate_deviance_for_all_peaks(ref, trace, weight_smaller=1,weight_bigger=
         if trace_peaks == []:
             print("WARNING: Not all peaks match -- omitting deviation for non-comparable peaks.")
             continue
-
+        
+        if from_bp < ref_peak.size_bp < to_bp:
+            print("INFO: Trace contains peaks which are not included in deviation calculation.")
 
         ## allows to calculate deviance for one trace only
         trace_peak=trace_peaks[0]
         
-        ## relative mode calculates percentage point deviance (RMS)
-        if relative_mode == True: 
-            if trace_peak.peak_height <= ref_peak.peak_height:
-                # deviation for smaller, i.e. potentially footprinted peaks
-                deviance_for_smaller_peaks += ((ref_peak.peak_height - trace_peak.peak_height)/ref_peak.peak_height)**2
-                n+=1
-            else:
-                # deviation for bigger, i.e. potentially hypersensitive peaks
-                deviance_for_bigger_peaks += ((ref_peak.peak_height - trace_peak.peak_height)/ref_peak.peak_height)**2
-                m+=1
-        else:
-            if trace_peak.peak_height <= ref_peak.peak_height:
-                # deviation for smaller, i.e. potentially footprinted peaks
-                deviance_for_smaller_peaks += (ref_peak.peak_height - trace_peak.peak_height)**2    
-                n+=1
-            else:
-                deviance_for_bigger_peaks += (ref_peak.peak_height - trace_peak.peak_height)**2
-                m+=1
 
-    weighted_deviation = numpy.sqrt((weight_smaller*deviance_for_smaller_peaks + weight_bigger*deviance_for_bigger_peaks)/(weight_smaller*n+weight_bigger*m))
+        if weight_by_inverse_height == True: 
+            ## this mode calculates deviation as percentage point, with different
+            ## weights for each peak
+            weight = 1/ref_peak.peak_height
+        else:
+            ## similarly weighted, the difference between the two trace functions
+            ## ~ area / integral between traces is calculated
+            weight = 1
+        
+        if trace_peak.peak_height <= ref_peak.peak_height:
+            # deviation for smaller, i.e. potentially footprinted peaks
+            deviance_for_smaller_peaks += abs((ref_peak.peak_height - trace_peak.peak_height)*weight)
+            num_smaller +=1
+        else:
+            # deviation for bigger, i.e. potentially hypersensitive peaks
+            deviance_for_bigger_peaks += abs((ref_peak.peak_height - trace_peak.peak_height)*weight)
+            num_bigger +=1
+
+    weighted_deviation = (weight_smaller*deviance_for_smaller_peaks + weight_bigger*deviance_for_bigger_peaks)
+
+    ## possible further outputs:
+    ## num_smaller
+    ## num_bigger
+    ## -> mean deviation per peak ~ normalizing
 
     return weighted_deviation
     
@@ -468,7 +482,10 @@ def calculate_free_ligand_concentration(ref,trace):
     #print(sum_fractional_occupancies)        
         
     Lfree_conc = trace.Ltot_conc - trace.Rtot_conc*sum_fractional_occupancies
-
+    
+    ## to make this reproducible with old evaluations:    
+    #Lfree_conc = trace.Ltot_conc 
+    
     return Lfree_conc
 
 
@@ -551,19 +568,20 @@ def generate_xdata_ydata(ref,trace_list,cluster):
 
         ## assumes that there is only one ref_peak with correct cluster number
         if ref_peak.cluster == cluster:
+
+            ## TODO: can we truly assume this all the time?!
+            xdata.append(0) #ref.Ltot_conc)
+            ydata.append(0) #ref_peak.fractional_occupancy)
+            ## alternative:
+            # xdata.append(ref.Ltot_conc)
+            # ydata.append(ref_peak.fractional_occupancy)
+            ## -> doesn't work, because fractional_occupancies are not set for ref, so far...
+
             
             for trace_peak in trace_peaks:        
                 ## DEBUG
                 #print(ref_peak,trace_peak)            
-                
-                ## TODO: can we truly assume this all the time?!
-                xdata.append(0) #ref.Ltot_conc)
-                ydata.append(0) #ref_peak.fractional_occupancy)
-                ## alternative:
-                # xdata.append(ref.Ltot_conc)
-                # ydata.append(ref_peak.fractional_occupancy)
-                ## -> doesn't work, because fractional_occupancies are not set for ref, so far...
-        
+                        
                 if trace_peak.footprinted_peak == True:
                     xdata.append(calculate_free_ligand_concentration(ref, [trace for trace in trace_list if trace_peak in trace.peaks][0]))
                     ydata.append(trace_peak.fractional_occupancy)
