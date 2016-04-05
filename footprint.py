@@ -224,6 +224,14 @@ def calculate_deviance_for_all_peaks(ref, trace, weight_smaller=1,weight_bigger=
     m=0
     
     for ref_peak,trace_peaks in give_all_clustered_peaks(ref,trace):
+
+        ## WORKAROUND for single trace mode
+        # if there are no peaks clustered to the ref_peak, they cannot be included --> continue with next pair
+        if trace_peaks == []:
+            print("WARNING: Not all peaks match -- omitting deviation for non-comparable peaks.")
+            continue
+
+
         ## allows to calculate deviance for one trace only
         trace_peak=trace_peaks[0]
         
@@ -336,6 +344,11 @@ def determine_factor_single_peak(ref, trace, weight_smaller=1, weight_bigger=1, 
         
     for ref_peak,trace_peaks in give_all_clustered_peaks(ref,trace):
 
+        ## WORKAROUND for single trace mode
+        # if there are no peaks clustered to the ref_peak, they cannot be used --> continue with next cycle
+        if trace_peaks == []:
+            continue
+
         ## works with one trace only 
         trace_peak = trace_peaks[0]
         
@@ -388,6 +401,15 @@ def mark_footprinted_peaks(ref, trace, threshold=0.1):
     """
 
     for ref_peak,trace_peaks in give_all_clustered_peaks(ref,trace):
+
+        ##DEBUG
+        #print(ref_peak,trace_peaks)
+        
+        ## WORKAROUND for single trace mode
+        # if there are no peaks clustered to the ref_peak, they cannot be marked --> continue with next cycle
+        if trace_peaks == []:
+            continue
+        
         ## works for one trace only
         trace_peak = trace_peaks[0]
         
@@ -406,10 +428,8 @@ def add_fractional_occupancies(ref,trace):
     """
 
     for ref_peak,trace_peaks in give_all_clustered_peaks(ref,trace):
-        ## works for one trace only
-        trace_peak = trace_peaks[0]
-
-        trace_peak.fractional_occupancy = 1 - trace_peak.peak_height / ref_peak.peak_height        
+        for trace_peak in trace_peaks:
+            trace_peak.fractional_occupancy = 1 - trace_peak.peak_height / ref_peak.peak_height        
 
     return
 
@@ -426,12 +446,22 @@ def calculate_free_ligand_concentration(ref,trace):
 
     sum_fractional_occupancies = 0
     for ref_peak,trace_peaks in give_all_clustered_peaks(ref,trace):
+
+        ## WORKAROUND for single trace mode
+        # if there are no peaks clustered to the ref_peak, they don't need to be considered --> continue with next cycle
+        if trace_peaks == []:
+            #print("Skipping in calc_Lfree_conc")
+            continue
+        
         ## works for one trace only
         trace_peak = trace_peaks[0]
 
+        ## DEBUG
+        #print(trace_peak)
+        
         if trace_peak.footprinted_peak:
             sum_fractional_occupancies += trace_peak.fractional_occupancy
-        
+    
     ## DEBUG
     #print(sum_fractional_occupancies)        
         
@@ -482,6 +512,7 @@ def fit_data_determine_kd(ref, trace_list):
             # xdata.append(ref.Ltot_conc)
             # ydata.append(ref_peak.fractional_occupancy)
             ## -> doesn't work, because fractional_occupancies are not set for ref, so far...
+
 
             if trace_peak.footprinted_peak == True:
                 xdata.append(calculate_free_ligand_concentration(ref, [trace for trace in trace_list if trace_peak in trace.peaks][0]))
@@ -546,10 +577,22 @@ def plot_data(ref, trace_list, cluster):
     plt.ylim([-0.1, 1.1])
     plt.xlim([-1, 10.1])
 
-    xdata, ydata = generate_xdata_ydata(ref,trace_list,cluster)
-                
+    ## plot points
+    xdata, ydata = generate_xdata_ydata(ref,trace_list,cluster)                
     plt.plot(xdata,ydata, 'o')
+
+
+    ## plot line
+    kd_matrix = fit_data_determine_kd(ref, trace_list)
+    kd = [entry[1] for entry in kd_matrix if entry[0] == "cluster "+str(cluster)]
+
+    import numpy
+
+    x = numpy.linspace(0,15,1000) # linearly spaced numbers
+    y = fitFunc_fR(x,kd)
+    plt.plot(x,y)
     
+    ## show plot
     plt.show()
     
     return 
