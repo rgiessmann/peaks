@@ -498,6 +498,7 @@ def fitFunc_fR(Lfree_conc, Kd):
     ## fR = (Lfree_conc)/(Lfree_conc + Kd)
     return (Lfree_conc)/(Lfree_conc + Kd)
 
+
 def fit_data_determine_kd(ref, trace_list):
     """
     Determines the K_D by fitting of observed fractional occupancies against
@@ -519,20 +520,19 @@ def fit_data_determine_kd(ref, trace_list):
         xdata = []
         ydata = []
 
+        ## TODO: can we truly assume this all the time?!
+        xdata.append(0) #ref.Ltot_conc)
+        ydata.append(0) #ref_peak.fractional_occupancy)
+        ## alternative:
+        # xdata.append(ref.Ltot_conc)
+        # ydata.append(ref_peak.fractional_occupancy)
+        ## -> doesn't work, because fractional_occupancies are not set for ref, so far...
+
         for trace_peak in trace_peaks:
 
             ## DEBUG
             #print(ref_peak,trace_peak)            
             
-            ## TODO: can we truly assume this all the time?!
-            xdata.append(0) #ref.Ltot_conc)
-            ydata.append(0) #ref_peak.fractional_occupancy)
-            ## alternative:
-            # xdata.append(ref.Ltot_conc)
-            # ydata.append(ref_peak.fractional_occupancy)
-            ## -> doesn't work, because fractional_occupancies are not set for ref, so far...
-
-
             if trace_peak.footprinted_peak == True:
                 xdata.append(calculate_free_ligand_concentration(ref, [trace for trace in trace_list if trace_peak in trace.peaks][0]))
                 ydata.append(trace_peak.fractional_occupancy)
@@ -566,17 +566,17 @@ def generate_xdata_ydata(ref,trace_list,cluster):
     
     for ref_peak,trace_peaks in give_all_clustered_peaks(ref,trace_list):
 
+        ## TODO: can we truly assume this all the time?!
+        xdata.append(0) #ref.Ltot_conc)
+        ydata.append(0) #ref_peak.fractional_occupancy)
+        ## alternative:
+        # xdata.append(ref.Ltot_conc)
+        # ydata.append(ref_peak.fractional_occupancy)
+        ## -> doesn't work, because fractional_occupancies are not set for ref, so far...
+
+
         ## assumes that there is only one ref_peak with correct cluster number
         if ref_peak.cluster == cluster:
-
-            ## TODO: can we truly assume this all the time?!
-            xdata.append(0) #ref.Ltot_conc)
-            ydata.append(0) #ref_peak.fractional_occupancy)
-            ## alternative:
-            # xdata.append(ref.Ltot_conc)
-            # ydata.append(ref_peak.fractional_occupancy)
-            ## -> doesn't work, because fractional_occupancies are not set for ref, so far...
-
             
             for trace_peak in trace_peaks:        
                 ## DEBUG
@@ -585,7 +585,10 @@ def generate_xdata_ydata(ref,trace_list,cluster):
                 if trace_peak.footprinted_peak == True:
                     xdata.append(calculate_free_ligand_concentration(ref, [trace for trace in trace_list if trace_peak in trace.peaks][0]))
                     ydata.append(trace_peak.fractional_occupancy)
+
             break
+            ## breaks the give_all_clustered_peaks loop because we already found the correct cluster
+            
     return xdata, ydata
             
 
