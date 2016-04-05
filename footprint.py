@@ -169,6 +169,13 @@ def get_data(read_filelist="../HexA.csv"):
     return trace_list
 
 def define_reference_peak(trace_list, accepted_offset=0.25):
+    """
+    Identifies 0M traces and clusters the peaks. An average of the peak heights of all
+    clustered peaks is calculated. The resulting peaks and peak heights are defined as
+    reference peaks and their heights.
+
+    -> ref contain only peaks that could be clustered
+    """
     #identify 0M traces
     conc_0_traces = []
     for trace in trace_list:
