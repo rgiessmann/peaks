@@ -168,9 +168,43 @@ def get_data(read_filelist="../HexA.csv"):
     
     return trace_list
 
-def define_reference_peak():
-        
+def define_reference_peak(trace_list, accepted_offset=0.25):
+    #identify 0M traces
+    conc_0_traces = []
+    for trace in trace_list:
+        if trace.Ltot_conc == 0:
+            conc_0_traces.append(t)
+
+    ref = conc_0_traces[0]
+    #cluster peaks of 0M traces
+    i = 0            
+    
+    for ref_peak in ref.peaks:
+        i += 1
+        ref_peak.cluster = i
+        for trace in conc_0_traces:
+            for peak in trace.peaks:
+                if ref_peak.size_bp - accepted_offset < peak.size_bp < ref_peak.size_bp + accepted_offset:
+                    peak.cluster = i
+
+    for trace in conc_0_traces:
+        for peak in trace.peaks:
+            if "cluster" not in vars(peak):
+                peak.cluster = 0
+                
+    #calculate average of clustered peaks
+    n = 0
+    for trace in conc_0_trace:
+        n += 1
+        for peak_cluster in set([peak.cluster for peak in ref.peaks]):
+            sum_peak += trace_peak.peak_height
+            av_peak_height = sum_peak / n
+
+    #resulting trace is reference trace
+     ref_peak.peak_height = av_peak_height           
+ 
     return
+
 
 def cluster_peaks(ref,trace_list,accepted_offset=0.25):
     """
