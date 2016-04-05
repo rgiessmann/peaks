@@ -168,6 +168,9 @@ def get_data(read_filelist="../HexA.csv"):
     
     return trace_list
 
+def define_reference_peak():
+        
+    return
 
 def cluster_peaks(ref,trace_list,accepted_offset=0.25):
     """
@@ -224,6 +227,7 @@ def calculate_deviance_for_all_peaks(ref, trace, weight_smaller=1,weight_bigger=
     m=0
     
     for ref_peak,trace_peaks in give_all_clustered_peaks(ref,trace):
+
         ## WORKAROUND for single trace mode
         # if there are no peaks clustered to the ref_peak, they cannot be included --> continue with next pair
         if trace_peaks == []:
@@ -234,28 +238,25 @@ def calculate_deviance_for_all_peaks(ref, trace, weight_smaller=1,weight_bigger=
         ## allows to calculate deviance for one trace only
         trace_peak=trace_peaks[0]
         
-        ## relative mode calculates percentage point deviance (RMS)
-        if relative_mode == True: 
-            if trace_peak.peak_height <= ref_peak.peak_height:
-                # deviation for smaller, i.e. potentially footprinted peaks
-                deviance_for_smaller_peaks += ((ref_peak.peak_height - trace_peak.peak_height)/ref_peak.peak_height)**2
-                n+=1
+        if trace_peak.peak_height <= ref_peak.peak_height:
+            # deviation for smaller, i.e. potentially footprinted peaks
+            if relative_mode: 
+                deviance_for_smaller_peaks += (ref_peak.peak_height - trace_peak.peak_height)/ref_peak.peak_height            
             else:
-                # deviation for bigger, i.e. potentially hypersensitive peaks
-                deviance_for_bigger_peaks += ((ref_peak.peak_height - trace_peak.peak_height)/ref_peak.peak_height)**2
-                m+=1
-        else:
-            if trace_peak.peak_height <= ref_peak.peak_height:
-                # deviation for smaller, i.e. potentially footprinted peaks
                 deviance_for_smaller_peaks += (ref_peak.peak_height - trace_peak.peak_height)**2    
-                n+=1
+            n+=1
+        else:
+            # deviation for bigger, i.e. potentially hypersensitive peaks
+            if relative_mode:
+                deviance_for_bigger_peaks += (ref_peak.peak_height - trace_peak.peak_height)/ref_peak.peak_height                
             else:
                 deviance_for_bigger_peaks += (ref_peak.peak_height - trace_peak.peak_height)**2
-                m+=1
+            m+=1
 
-    weighted_deviation = numpy.sqrt((weight_smaller*deviance_for_smaller_peaks + weight_bigger*deviance_for_bigger_peaks)/(weight_smaller*n+weight_bigger*m))
 
-    return weighted_deviation
+    weighted_rmsd = numpy.sqrt((weight_smaller*deviance_for_smaller_peaks + weight_bigger*deviance_for_bigger_peaks)/(weight_smaller*n+weight_bigger*m))
+
+    return weighted_rmsd 
     
     
     
@@ -573,7 +574,7 @@ def generate_xdata_ydata(ref,trace_list,cluster):
 
 def plot_data(ref, trace_list, cluster):
 
-    plt.title("Cluster " + str(cluster))
+    plt.title("Peak size in bp" + str(peak.peak_size))
     plt.ylabel('Fractional Occupancy', fontsize = 16)
     plt.xlabel('Free Ligand Concentration', fontsize = 16)
     plt.ylim([-0.1, 1.1])
@@ -596,12 +597,26 @@ def plot_data(ref, trace_list, cluster):
     
     ## show plot
     plt.show()
+
+    ##save plots
+    plt.savefig(str(peak.peak_size), dpi=72)
     
     return 
 
 
-#def write_data_to_csv(KD_matrix):
-  #return
+def write_results_to_csv(ref, trace_list, Lfree_conc, KD_matrix):
+    import csv
+    with open('results.csv', 'w', newline=' ') as csvfile
+        csv_output = csv.writer(csvfile, delimiter=',')
+        
+        
+        #header = csv_output.__next__()
+        csv_output.writerow(["Peak size","Lfree","fR","Kd","Covar")]
+        for peak in give_all_clustered_peaks(ref,trace_list):
+            if trace_peak.footprinted_peak == True:
+               csv_output.append(peak.peak_size, Lfree_conc, peak.fractional occupancy,KD_mtarix) 
+        csv_output.close()
+  return
 
 
 if __name__ == "__main__":
