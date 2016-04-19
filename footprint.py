@@ -176,10 +176,11 @@ def define_reference_peak(trace_list, accepted_offset=0.25):
 
     -> ref contain only peaks that could be clustered
     """
+    
     #identify 0M traces
     conc_0_traces = []
-    for trace in trace_list:
-        if trace.Ltot_conc == 0:
+    for t in trace_list:
+        if t.Ltot_conc == 0:
             conc_0_traces.append(t)
 
     ref = conc_0_traces[0]
@@ -201,16 +202,22 @@ def define_reference_peak(trace_list, accepted_offset=0.25):
                 
     #calculate average of clustered peaks
     n = 0
-    for trace in conc_0_trace:
+    sum_peak = 0
+    for trace in conc_0_traces:
         n += 1
         for peak_cluster in set([peak.cluster for peak in ref.peaks]):
-            sum_peak += trace_peak.peak_height
+            sum_peak += peak.peak_height
             av_peak_height = sum_peak / n
-
-    #resulting trace is reference trace
-     ref_peak.peak_height = av_peak_height           
- 
-    return
+            #resulting trace is reference trace
+            ref_peak.peak_height = av_peak_height
+            
+##    for peak_cluster in set([peak.cluster for peak in ref.peaks]):
+##        ref.append[ref_peak.peak_height, ref_peak.size_bp]
+    
+    for trace in trace_list:
+        if trace in conc_0_traces:
+           del(trace)
+    return 
 
 
 def cluster_peaks(ref,trace_list,accepted_offset=0.25):
