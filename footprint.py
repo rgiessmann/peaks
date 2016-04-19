@@ -42,7 +42,7 @@ def main(argv=""):
 
  ## -> find test cases in test/ directory!
     
-    print("done.")
+    log.info("done.")
 
     return
 
@@ -99,6 +99,92 @@ def list_traces(read_filelist="../HexA.csv"):
         w.writerow([row[1],row[0],"?","?","?"])
     return storage_traces
 
+def generate_averaged_negative_control(trace_list,accepted_offset=0.5):
+    trace_list = trace_list.copy()
+    conc_0_traces = []
+    for t in trace_list:
+        if t.Ltot_conc == 0:
+            conc_0_traces.append(t)
+    if len(conc_0_traces) > 1:
+        
+        i = 0       
+        
+        ## shouldn't be necessary
+#        
+#        for ref_peak in conc_0_traces[0].peaks:
+#            i += 1
+#            ref_peak.cluster = i
+#            for trace in conc_0_traces[1:]:
+#                for peak in trace.peaks:
+#                    if ref_peak.size_bp - accepted_offset < peak.size_bp < ref_peak.size_bp + accepted_offset:
+#                        peak.cluster = i
+                        
+        for trace in conc_0_traces:
+            for ref_peak in trace.peaks:                
+                if "cluster" not in vars(ref_peak):
+                    i += 1
+                    ref_peak.cluster = i
+                    for t in conc_0_traces:
+                        for peak in t.peaks:
+                            if peak.size_bp - accepted_offset < ref_peak.size_bp < peak.size_bp + accepted_offset:
+                                if "cluster" not in vars(peak):
+                                    peak.cluster = i
+                                else:
+                                    log.critical("Unclustered peak is lying too close to other ones! This should not happen!")
+            
+        for trace in conc_0_traces[1:]:
+            correct_peaks_with_factor(trace,determine_factor_numerically(conc_0_traces[0],trace))
+                        
+        ref = Trace("averaged_negative_control", "B", 0, 0)
+
+        n = i        
+        for i in range(1,n+1):
+            trace_storage = []
+            for trace in conc_0_traces:
+                for peak in trace.peaks:
+                    if peak.cluster == i:
+                        trace_storage.append(peak)
+            averaged_peak_height_mean = numpy.mean([p.peak_height for p in trace_storage])
+            averaged_peak_height_n = len(trace_storage)
+            averaged_peak_height_sd = numpy.std([p.peak_height for p in trace_storage])
+            averaged_peak_size_bp_mean = numpy.mean([p.size_bp for p in trace_storage])
+            averaged_peak_size_bp_n = len(trace_storage)
+            averaged_peak_size_bp_sd = numpy.std([p.size_bp for p in trace_storage])
+            
+            ref.peaks.append(Peak(averaged_peak_size_bp_mean,averaged_peak_height_mean))
+            ref.peaks[-1].averaged_peak_height_n = averaged_peak_height_n
+            ref.peaks[-1].averaged_peak_height_nm = averaged_peak_height_n / len(conc_0_traces)            
+            ref.peaks[-1].averaged_peak_height_sd = averaged_peak_height_sd
+            ref.peaks[-1].averaged_peak_size_bp_n = averaged_peak_size_bp_n
+            ref.peaks[-1].averaged_peak_size_bp_sd = averaged_peak_size_bp_sd
+            ref.peaks[-1].averaged_peak_size_bp_nm = averaged_peak_size_bp_n / len(conc_0_traces)
+            
+            del(trace_storage)
+            
+    elif len(conc_0_traces) == 1:
+        log.warning("You called generate_averaged_negative_control although only 1 trace with Ltot = 0 is available. Returning the clustered trace.")        
+        ## create new object
+        c = conc_0_traces[0]    
+        ref = Trace(c.file_name, c.dye_color, c.Ltot_conc, c.Rtot_conc)
+        for p in c.peaks:
+            ref.peaks.append(Peak(p.size_bp, p.peak_height))
+
+        i = 0                    
+        for ref_peak in ref.peaks:
+            i += 1
+            ref_peak.cluster = i
+
+    else:
+        log.critical("The provided trace_list contains no negative control traces with Ltot = 0.")
+
+    ## clean-up        
+    for t in trace_list:
+        for p in t.peaks:
+            if "cluster" in vars(p):
+                del(p.cluster)
+                
+    return ref
+
 def get_data(read_filelist="../HexA.csv", config_file="../input_traces.csv"):
     """
     Reads data from read_filelist, and returns an object containing all read
@@ -138,7 +224,7 @@ def get_data(read_filelist="../HexA.csv", config_file="../input_traces.csv"):
             index.size_bp = header.index("Size")
             index.file_name = header.index('Sample File Name')
             index.sample_name = header.index('Sample Name')
-            print(header)
+            log.info("Header from csv file: "+str(header))
             
             for row in csv_reader:
                 #rules for entry acceptance?
@@ -171,7 +257,7 @@ def get_data(read_filelist="../HexA.csv", config_file="../input_traces.csv"):
     
     for foo in sample_file_names:
         if foo not in storage_traces:
-            print("Couldn't find trace "+str(foo)+" in the given files...")        
+            log.warning("Couldn't find trace "+str(foo)+" in the given files...")        
     
     return trace_list
 
@@ -197,12 +283,17 @@ def cluster_peaks(ref,trace_list,accepted_offset=0.25):
         for trace in trace_list:
             for peak in trace.peaks:
                 if ref_peak.size_bp - accepted_offset < peak.size_bp < ref_peak.size_bp + accepted_offset:
-                    peak.cluster = i
+                    if "cluster" not in vars(peak):
+                        peak.cluster = i
+                    else:
+                        print("CRITICAL")
+                        log.critical("Reclustering of already clustered peak was tried.")
                     
     for trace in trace_list:
         for peak in trace.peaks:
             if "cluster" not in vars(peak):
                 peak.cluster = 0
+                log.warning("A peak couldn't be clustered: "+str(peak))
                 
     return 
 
@@ -225,6 +316,9 @@ def calculate_deviance_for_all_peaks(ref, trace, weight_smaller=1,weight_bigger=
     ## TODO: calculate deviance for trace_list --> saves computing time
     '''
 
+    warning_not_all_peaks_match = False
+    warning_trace_range = False
+
     deviance_for_smaller_peaks = 0
     deviance_for_bigger_peaks = 0        
     num_smaller=0
@@ -234,11 +328,15 @@ def calculate_deviance_for_all_peaks(ref, trace, weight_smaller=1,weight_bigger=
         ## WORKAROUND for single trace mode
         # if there are no peaks clustered to the ref_peak, they cannot be included --> continue with next pair
         if trace_peaks == []:
-            print("WARNING: Not all peaks match -- omitting deviation for non-comparable peaks.")
+            if warning_not_all_peaks_match == False:
+                log.info("INFO: Not all peaks match -- omitting deviation for non-comparable peaks.")
+                warning_not_all_peaks_match = True
             continue
         
-        if from_bp < ref_peak.size_bp < to_bp:
-            print("INFO: Trace contains peaks which are not included in deviation calculation.")
+        if ref_peak.size_bp < from_bp or ref_peak.size_bp > to_bp:
+            if warning_trace_range == False:
+                log.info("INFO: Trace contains peaks which are not included in deviation calculation.")
+                warning_trace_range = True
 
         ## allows to calculate deviance for one trace only
         trace_peak=trace_peaks[0]
@@ -293,11 +391,11 @@ def give_all_clustered_peaks(ref,trace_list):
                 trace_peaks.append(foo[0])
         if len(ref_peak)==1:
             if len(trace_peaks) != len(trace_list):
-                print("WARNING: Unable to find clustered peaks for all given traces...")
+                log.info("INFO: Unable to find clustered peaks for all given traces...")
             yield (ref_peak[0],trace_peaks)
 
 
-def determine_factor_numerically(ref, trace, weight_smaller=1, weight_bigger=1, relative_mode=False):
+def determine_factor_numerically(ref, trace, weight_smaller=1, weight_bigger=1, relative_mode=True):
     """
     Determines the optimal factor for trace, when compared to ref. This function
     minimizes the deviation as calculated by calculate_deviance_for_all_peaks()
@@ -475,8 +573,8 @@ def calculate_free_ligand_concentration(ref,trace):
         ## DEBUG
         #print(trace_peak)
         
-        if trace_peak.footprinted_peak:
-            sum_fractional_occupancies += trace_peak.fractional_occupancy
+        #if trace_peak.footprinted_peak:
+        ##    sum_fractional_occupancies += trace_peak.fractional_occupancy
     
     ## DEBUG
     #print(sum_fractional_occupancies)        
@@ -486,7 +584,7 @@ def calculate_free_ligand_concentration(ref,trace):
     ## to make this reproducible with old evaluations:    
     #Lfree_conc = trace.Ltot_conc 
     
-    return Lfree_conc
+    return trace.Ltot_conc
 
 
 def fitFunc_fR(Lfree_conc, Kd):
@@ -496,7 +594,11 @@ def fitFunc_fR(Lfree_conc, Kd):
     ## to be fitted: Kd
     
     ## fR = (Lfree_conc)/(Lfree_conc + Kd)
-    return (Lfree_conc)/(Lfree_conc + Kd)
+    import numpy 
+    signal = (Lfree_conc + Kd + 0.02 - numpy.sqrt( (- Lfree_conc - Kd - 0.02)**2 - 4*0.02*Lfree_conc))/(2*0.02)
+    return signal
+
+#    return (Lfree_conc)/(Lfree_conc + Kd)
 
 
 def fit_data_determine_kd(ref, trace_list):
@@ -521,8 +623,8 @@ def fit_data_determine_kd(ref, trace_list):
         ydata = []
 
         ## TODO: can we truly assume this all the time?!
-        xdata.append(0) #ref.Ltot_conc)
-        ydata.append(0) #ref_peak.fractional_occupancy)
+        #xdata.append(0) #ref.Ltot_conc)
+        #ydata.append(0) #ref_peak.fractional_occupancy)
         ## alternative:
         # xdata.append(ref.Ltot_conc)
         # ydata.append(ref_peak.fractional_occupancy)
@@ -533,9 +635,9 @@ def fit_data_determine_kd(ref, trace_list):
             ## DEBUG
             #print(ref_peak,trace_peak)            
             
-            if trace_peak.footprinted_peak == True:
-                xdata.append(calculate_free_ligand_concentration(ref, [trace for trace in trace_list if trace_peak in trace.peaks][0]))
-                ydata.append(trace_peak.fractional_occupancy)
+            #if trace_peak.footprinted_peak == True:
+            xdata.append(calculate_free_ligand_concentration(ref, [trace for trace in trace_list if trace_peak in trace.peaks][0]))
+            ydata.append(trace_peak.fractional_occupancy)
                 
             ## TODO: shall we catch out clusters with no footprinted peaks at all?
             ## ...
@@ -544,14 +646,13 @@ def fit_data_determine_kd(ref, trace_list):
         #print(xdata,ydata)
         
         ## fitting...
+
         popt, pcov= curve_fit(fitFunc_fR, xdata, ydata)
-
-        # compute SE, i.e. standard deviation errors 
+        # compute standard deviation errors 
         perr = numpy.sqrt(numpy.diag(pcov))
-
         ## save results...
         ## TODO: optimize this form.
-        KD_matrix.append(["cluster "+str(ref_peak.cluster), popt[0], perr[0]])
+        KD_matrix.append(["cluster "+str(ref_peak.cluster), popt[0], perr[0], len(ydata), len(ydata)/len(trace_list)])
 
     return KD_matrix
 
@@ -567,8 +668,8 @@ def generate_xdata_ydata(ref,trace_list,cluster):
     for ref_peak,trace_peaks in give_all_clustered_peaks(ref,trace_list):
 
         ## TODO: can we truly assume this all the time?!
-        xdata.append(0) #ref.Ltot_conc)
-        ydata.append(0) #ref_peak.fractional_occupancy)
+        #xdata.append(0) #ref.Ltot_conc)
+        #ydata.append(0) #ref_peak.fractional_occupancy)
         ## alternative:
         # xdata.append(ref.Ltot_conc)
         # ydata.append(ref_peak.fractional_occupancy)
@@ -582,9 +683,9 @@ def generate_xdata_ydata(ref,trace_list,cluster):
                 ## DEBUG
                 #print(ref_peak,trace_peak)            
                         
-                if trace_peak.footprinted_peak == True:
-                    xdata.append(calculate_free_ligand_concentration(ref, [trace for trace in trace_list if trace_peak in trace.peaks][0]))
-                    ydata.append(trace_peak.fractional_occupancy)
+                #if trace_peak.footprinted_peak == True:
+                xdata.append(calculate_free_ligand_concentration(ref, [trace for trace in trace_list if trace_peak in trace.peaks][0]))
+                ydata.append(trace_peak.fractional_occupancy)
 
             break
             ## breaks the give_all_clustered_peaks loop because we already found the correct cluster
@@ -592,7 +693,7 @@ def generate_xdata_ydata(ref,trace_list,cluster):
     return xdata, ydata
             
 
-def plot_data(ref, trace_list, cluster):
+def plot_data(ref, trace_list, cluster, kd_matrix):
 
     plt.title("Cluster " + str(cluster))
     plt.ylabel('Fractional Occupancy', fontsize = 16)
@@ -606,7 +707,7 @@ def plot_data(ref, trace_list, cluster):
 
 
     ## plot line
-    kd_matrix = fit_data_determine_kd(ref, trace_list)
+#    kd_matrix = fit_data_determine_kd(ref, trace_list)
     kd = [entry[1] for entry in kd_matrix if entry[0] == "cluster "+str(cluster)]
 
     import numpy
