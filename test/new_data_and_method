@@ -1,0 +1,69 @@
+
+# coding: utf-8
+
+## workaround for relative imports...
+import sys
+from pathlib import Path # if you haven't already done so
+root = Path(__file__).resolve().parents[1].as_posix()
+# For older Python:
+#   from os.path import dirname, realpath
+#   root = dirname(dirname(realpath(__file__)))
+sys.path.append(root)
+## end workaround
+
+
+
+import footprint
+
+import imp
+imp.reload(footprint)
+
+
+trace_list = footprint.get_data("./HexA.csv", "./input_traces.csv")
+trace = trace_list[1]
+
+##conc_0_traces = []
+##for t in trace_list:
+##    print(t.Ltot_conc,t.file_name)
+##    if t.Ltot_conc == 0:
+##        conc_0_traces.append(t)
+##print("---")
+##print(len(conc_0_traces))
+
+ref = footprint.generate_averaged_negative_control(trace_list,accepted_offset=0.5)
+
+for ref_peak in ref.peaks:
+    print("ref_peak_height:"+str(ref_peak.peak_height)+"ref_peak_size:"+str(ref_peak.size_bp))
+
+
+footprint.cluster_peaks(ref,trace_list,accepted_offset=0.25)
+
+footprint.calculate_deviance_for_all_peaks(ref, trace_list, weight_smaller=1,weight_bigger=1, weight_by_inverse_height=False, from_bp=20, to_bp=125)
+
+for trace in trace_list:
+    trace_peaks = [footprint.give_all_clustered_peaks(ref,trace_list)]
+    for ref_peak,trace_peaks in footprint.give_all_clustered_peaks(ref,trace_list):
+        footprint.determine_factor_numerically(ref, trace_list, weight_smaller=1, weight_bigger=1, relative_mode=True)
+    
+    print("factor:"+str(peak.cluster)+str(footprint.determine_factor_numerically(ref, trace_list, weight_smaller=1, weight_bigger=1, relative_mode=True)))
+
+##for trace in trace_list:
+##     footprint.correct_peaks_with_factor(trace_list,factor)
+##
+##for trace in trace_list:
+##    footprint.mark_footprinted_peaks(ref, trace, threshold=0.1)
+##    footprint.add_fractional_occupancies(ref,traces)
+##    print("Fractional occupancy:"+str(peak.cluster)+str(footprint.determine_factor_numerically(ref, trace_list, weight_smaller=1, weight_bigger=1, relative_mode=True)))    
+##
+##for trace in trace_list:
+##    footprint.calculate_free_ligand_concentration(ref,trace)
+##
+##
+##footprint.fit_data_determine_kd(ref, trace_list)
+##for ref_peak,trace_peaks in footprint.give_all_clustered_peaks(ref,trace_list):
+##    print("Kd-Matrix:"+str(footprint.fit_data_determine_kd(ref, trace_list))
+##
+##for ref_peak,trace_peaks in footprint.give_all_clustered_peaks(ref,trace_list):
+##    footprint.plot_data(ref, trace_list, cluster)
+
+
