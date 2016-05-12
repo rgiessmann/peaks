@@ -390,7 +390,7 @@ def give_all_clustered_peaks(ref,trace_list):
             yield (ref_peak[0],trace_peaks)
 
 
-def determine_factor_numerically(ref, trace_list, weight_smaller=1, weight_bigger=1, relative_mode=True):
+def determine_factor_numerically(ref, trace, weight_smaller=1, weight_bigger=1, relative_mode=True):
     """
     Determines the optimal factor for trace, when compared to ref. This function
     minimizes the deviation as calculated by calculate_deviance_for_all_peaks()
@@ -401,7 +401,7 @@ def determine_factor_numerically(ref, trace_list, weight_smaller=1, weight_bigge
     """
     
     optimal_factor = 1
-    rmsd_old = calculate_deviance_for_all_peaks(ref,trace_list,weight_smaller,weight_bigger, relative_mode)
+    rmsd_old = calculate_deviance_for_all_peaks(ref, trace,weight_smaller,weight_bigger, relative_mode)
 
     ## store original peak heights
     for peak in trace.peaks:
@@ -409,24 +409,24 @@ def determine_factor_numerically(ref, trace_list, weight_smaller=1, weight_bigge
 
     for factor in numpy.arange(0,3.5,0.01):
 
-        correct_peaks_with_factor(trace_list,factor)
-            
-        rmsd_new = calculate_deviance_for_all_peaks(ref,trace_list,weight_smaller,weight_bigger,relative_mode)
-                
-        ## restore all peak heights to original height
+        correct_peaks_with_factor(trace,factor)
         
+        rmsd_new = calculate_deviance_for_all_peaks(ref,trace,weight_smaller,weight_bigger,relative_mode)
+            
+    ## restore all peak heights to original height
+    
         for peak in trace.peaks:
             peak.peak_height = peak.peak_height_original 
-        
-        ## DEBUG
-        #print(str(factor)+" : "+str(rmsd_new))
+    
+    ## DEBUG
+    #print(str(factor)+" : "+str(rmsd_new))
 
-        #compare deviance_new with deviance_old, if better deviance_new -> deviance_old, else delete deviance_new
+    #compare deviance_new with deviance_old, if better deviance_new -> deviance_old, else delete deviance_new
         if rmsd_new < rmsd_old:
-            rmsd_old = rmsd_new
-            optimal_factor = factor
-            
-    ## in the end: delete stored original peak heights
+           rmsd_old = rmsd_new
+           optimal_factor = factor
+                
+## in the end: delete stored original peak heights
     for peak in trace.peaks:
         del(peak.peak_height_original)
 
@@ -482,15 +482,15 @@ def determine_factor_single_peak(ref, trace, weight_smaller=1, weight_bigger=1, 
     return optimal_factor
 
 
-def correct_peaks_with_factor(trace_list, factor):
+def correct_peaks_with_factor(trace, factor):
     """
     Corrects all peak_heights in trace with factor. The multiplication is applied
     directly to the object given as argument.
     """
 
-    for trace in trace_list:    
-        for peak in trace.peaks:
-            peak.peak_height = peak.peak_height * factor
+  #  for trace in trace_list:    
+    for peak in trace.peaks:
+        peak.peak_height = peak.peak_height * factor
 
     return
 
@@ -575,7 +575,7 @@ def calculate_free_ligand_concentration(ref,trace):
     ## DEBUG
     #print(sum_fractional_occupancies)        
         
-    Lfree_conc = trace.Ltot_conc - trace.Rtot_conc*sum_fractional_occupancies
+    trace.Lfree_conc = trace.Ltot_conc - trace.Rtot_conc*sum_fractional_occupancies
     
     ## to make this reproducible with old evaluations:    
     #Lfree_conc = trace.Ltot_conc 
