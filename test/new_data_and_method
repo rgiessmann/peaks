@@ -38,25 +38,23 @@ for ref_peak in ref.peaks:
 
 footprint.cluster_peaks(ref,trace_list,accepted_offset=0.25)
 
-footprint.calculate_deviance_for_all_peaks(ref, trace_list, weight_smaller=1,weight_bigger=1, weight_by_inverse_height=False, from_bp=20, to_bp=125)
+for ref_peak in ref.peaks:
+    print("peak cluster:"+str(ref_peak.cluster)+str(ref_peak.size_bp))
+
+#footprint.calculate_deviance_for_all_peaks(ref, trace_list, weight_smaller=1,weight_bigger=1, weight_by_inverse_height=False, from_bp=20, to_bp=125)
 
 for trace in trace_list:
-    trace_peaks = [footprint.give_all_clustered_peaks(ref,trace_list)]
-    for ref_peak,trace_peaks in footprint.give_all_clustered_peaks(ref,trace_list):
-        footprint.determine_factor_numerically(ref, trace, weight_smaller=1, weight_bigger=1, relative_mode=True)
-    
-    print("factor:"+str(peak.cluster)+str(footprint.determine_factor_numerically(ref, trace,trace_list, weight_smaller=1, weight_bigger=1, relative_mode=True)))
+    #trace_peaks = [footprint.give_all_clustered_peaks(ref,trace_list)]
+    #for ref_peak,trace_peaks in footprint.give_all_clustered_peaks(ref,trace_list):
+    factor = footprint.determine_factor_numerically(ref, trace, weight_smaller=1, weight_bigger=1, relative_mode=True)
+    print("factor:"+str(ref_peak.cluster)+str(footprint.determine_factor_numerically(ref, trace, weight_smaller=1, weight_bigger=1, relative_mode=True)))
+    footprint.correct_peaks_with_factor(trace,factor)
 
-
-for trace in trace_list:
-     footprint.correct_peaks_with_factor(trace,factor)
 
 for trace in trace_list:
     footprint.mark_footprinted_peaks(ref, trace, threshold=0.1)
     footprint.add_fractional_occupancies(ref,trace)
-    #print("Fractional occupancy:"+str(peak.cluster)+str(footprint.add_fractional_occupancies(ref,trace)))    
-
-for trace in trace_list:
+    print("Fractional occupancy:"+str(ref_peak.cluster)+str(footprint.add_fractional_occupancies(ref,trace)))    
     footprint.calculate_free_ligand_concentration(ref,trace)
     print("Lfree_conc:"+str(footprint.calculate_free_ligand_concentration(ref,trace)))
 
