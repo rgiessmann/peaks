@@ -11,7 +11,7 @@ import copy
 
 
 ## turn on logging
-logging.basicConfig(level=logging.INFO)
+logging.basicConfig(level=logging.CRITICAL)
 global log
 log = logging   
 
@@ -385,8 +385,8 @@ def give_all_clustered_peaks(ref,trace_list):
             if len(foo) == 1:
                 trace_peaks.append(foo[0])
         if len(ref_peak)==1:
-            if len(trace_peaks) != len(trace_list):
-                print("WARNING: Unable to find clustered peaks for all given traces...")
+            #if len(trace_peaks) != len(trace_list):
+                #print("WARNING: Unable to find clustered peaks for all given traces...")
             yield (ref_peak[0],trace_peaks)
 
 
