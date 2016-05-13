@@ -541,7 +541,7 @@ def add_fractional_occupancies(ref,trace):
         for trace_peak in trace_peaks:
             trace_peak.fractional_occupancy = 1 - trace_peak.peak_height / ref_peak.peak_height        
 
-    return
+    return trace_peak.fractional_occupancy
 
 
 def calculate_free_ligand_concentration(ref,trace):
