@@ -47,7 +47,7 @@ for trace in trace_list:
     #trace_peaks = [footprint.give_all_clustered_peaks(ref,trace_list)]
     #for ref_peak,trace_peaks in footprint.give_all_clustered_peaks(ref,trace_list):
     factor = footprint.determine_factor_numerically(ref, trace, weight_smaller=1, weight_bigger=1, relative_mode=True)
-    print("factor:"+str(ref_peak.cluster)+str(footprint.determine_factor_numerically(ref, trace, weight_smaller=1, weight_bigger=1, relative_mode=True)))
+    print("factor:"+str(footprint.determine_factor_numerically(ref, trace, weight_smaller=1, weight_bigger=1, relative_mode=True)))
     footprint.correct_peaks_with_factor(trace,factor)
 
 
@@ -58,11 +58,11 @@ for trace in trace_list:
     footprint.calculate_free_ligand_concentration(ref,trace)
     print("Lfree_conc:"+str(footprint.calculate_free_ligand_concentration(ref,trace)))
 
-footprint.fit_data_determine_kd(ref, trace_list)
-for ref_peak,trace_peaks in footprint.give_all_clustered_peaks(ref,trace_list):
-    print("Kd-Matrix:"+str(footprint.fit_data_determine_kd(ref, trace_list)))
-
-for ref_peak,trace_peaks in footprint.give_all_clustered_peaks(ref,trace_list):
-    footprint.plot_data(ref, trace_list, cluster)
+##footprint.fit_data_determine_kd(ref, trace_list)
+##for ref_peak,trace_peaks in footprint.give_all_clustered_peaks(ref,trace_list):
+##    print("Kd-Matrix:"+str(footprint.fit_data_determine_kd(ref, trace_list)))
+##
+##for ref_peak,trace_peaks in footprint.give_all_clustered_peaks(ref,trace_list):
+##    footprint.plot_data(ref, trace_list, cluster)
 
 
