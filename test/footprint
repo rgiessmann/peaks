@@ -64,7 +64,6 @@ class Peak:
     def __init__(self, size_bp, peak_height):
         self.size_bp = float(size_bp)
         self.peak_height = float(peak_height)
-        return
     def __repr__(self):
         return repr(vars(self))
     #    return repr({"peak_height" : self.peak_height})
@@ -210,7 +209,9 @@ def generate_averaged_negative_control(trace_list,accepted_offset=0.5):
                                     log.critical("Unclustered peak is lying too close to other ones! This should not happen!")
             
         for trace in conc_0_traces[1:]:
+            print("factor:"+str(determine_factor_numerically(conc_0_traces[0],trace)))
             correct_peaks_with_factor(trace,determine_factor_numerically(conc_0_traces[0],trace))
+            
                         
         ref = Trace("averaged_negative_control", "B", 0, 0)
 
@@ -293,7 +294,7 @@ def cluster_peaks(ref,trace_list,accepted_offset=0.25):
     return 
 
 
-def calculate_deviance_for_all_peaks(ref, trace_list, weight_smaller=1,weight_bigger=1, weight_by_inverse_height=False, from_bp=20, to_bp=125):
+def calculate_deviance_for_all_peaks(ref, trace_list, weight_smaller=1,weight_bigger=1, weight_by_inverse_height=False, from_bp=20, to_bp=170):
     '''
     Calculates the area between peaks that were identified as clustered in ref, 
     compared to trace. Allows for comparison of two traces only.
@@ -336,24 +337,24 @@ def calculate_deviance_for_all_peaks(ref, trace_list, weight_smaller=1,weight_bi
         ## allows to calculate deviance for one trace only
         trace_peak=trace_peaks[0]
         
-
-        if weight_by_inverse_height == True: 
-            ## this mode calculates deviation as percentage point, with different
-            ## weights for each peak
-            weight = 1/ref_peak.peak_height
-        else:
-            ## similarly weighted, the difference between the two trace functions
-            ## ~ area / integral between traces is calculated
-            weight = 1
-        
-        if trace_peak.peak_height <= ref_peak.peak_height:
-            # deviation for smaller, i.e. potentially footprinted peaks
-            deviance_for_smaller_peaks += abs((ref_peak.peak_height - trace_peak.peak_height)*weight)
-            num_smaller +=1
-        else:
-            # deviation for bigger, i.e. potentially hypersensitive peaks
-            deviance_for_bigger_peaks += abs((ref_peak.peak_height - trace_peak.peak_height)*weight)
-            num_bigger +=1
+        if from_bp < ref_peak.size_bp < to_bp:
+            if weight_by_inverse_height == True: 
+                ## this mode calculates deviation as percentage point, with different
+                ## weights for each peak
+                weight = 1/ref_peak.peak_height
+            else:
+                ## similarly weighted, the difference between the two trace functions
+                ## ~ area / integral between traces is calculated
+                weight = 1
+            
+            if trace_peak.peak_height <= ref_peak.peak_height:
+                # deviation for smaller, i.e. potentially footprinted peaks
+                deviance_for_smaller_peaks += abs((ref_peak.peak_height - trace_peak.peak_height)*weight)
+                num_smaller +=1
+            else:
+                # deviation for bigger, i.e. potentially hypersensitive peaks
+                deviance_for_bigger_peaks += abs((ref_peak.peak_height - trace_peak.peak_height)*weight)
+                num_bigger +=1
 
     weighted_deviation = (weight_smaller*deviance_for_smaller_peaks + weight_bigger*deviance_for_bigger_peaks)
 
@@ -390,7 +391,7 @@ def give_all_clustered_peaks(ref,trace_list):
             yield (ref_peak[0],trace_peaks)
 
 
-def determine_factor_numerically(ref, trace, weight_smaller=1, weight_bigger=1, relative_mode=True):
+def determine_factor_numerically(ref, trace, weight_smaller=1, weight_bigger=1, relative_mode=True, from_bp=20, to_bp=170):
     """
     Determines the optimal factor for trace, when compared to ref. This function
     minimizes the deviation as calculated by calculate_deviance_for_all_peaks()
@@ -401,7 +402,7 @@ def determine_factor_numerically(ref, trace, weight_smaller=1, weight_bigger=1, 
     """
     
     optimal_factor = 1
-    rmsd_old = calculate_deviance_for_all_peaks(ref, trace,weight_smaller,weight_bigger, relative_mode)
+    rmsd_old = calculate_deviance_for_all_peaks(ref, trace,weight_smaller,weight_bigger, relative_mode, from_bp, to_bp)
 
     ## store original peak heights
     for peak in trace.peaks:
@@ -411,7 +412,7 @@ def determine_factor_numerically(ref, trace, weight_smaller=1, weight_bigger=1, 
 
         correct_peaks_with_factor(trace,factor)
         
-        rmsd_new = calculate_deviance_for_all_peaks(ref,trace,weight_smaller,weight_bigger,relative_mode)
+        rmsd_new = calculate_deviance_for_all_peaks(ref,trace,weight_smaller,weight_bigger,relative_mode, from_bp, to_bp)
             
     ## restore all peak heights to original height
     
@@ -512,11 +513,11 @@ def mark_footprinted_peaks(ref, trace, threshold=0.1):
 
     for ref_peak,trace_peaks in give_all_clustered_peaks(ref,trace):
 
-        ##DEBUG
-        #print(ref_peak,trace_peaks)
-        
-        ## WORKAROUND for single trace mode
-        # if there are no peaks clustered to the ref_peak, they cannot be marked --> continue with next cycle
+    ##DEBUG
+    #print(ref_peak,trace_peaks)
+    
+    ## WORKAROUND for single trace mode
+    # if there are no peaks clustered to the ref_peak, they cannot be marked --> continue with next cycle
         if trace_peaks == []:
             continue
         
@@ -530,16 +531,16 @@ def mark_footprinted_peaks(ref, trace, threshold=0.1):
             
     return 
 
-def add_fractional_occupancies(ref,trace):
+def add_fractional_occupancies(ref_peak,trace_peaks):
     """
     TODO:    ...
     
     Modifies the object trace directly.
     """
 
-    for ref_peak,trace_peaks in give_all_clustered_peaks(ref,trace):
-        for trace_peak in trace_peaks:
-            trace_peak.fractional_occupancy = 1 - trace_peak.peak_height / ref_peak.peak_height        
+##    for ref_peak,trace_peaks in give_all_clustered_peaks(ref,trace):
+    for trace_peak in trace_peaks:
+        trace_peak.fractional_occupancy = 1 - trace_peak.peak_height / ref_peak.peak_height        
 
     return trace_peak.fractional_occupancy
 
@@ -548,13 +549,11 @@ def calculate_free_ligand_concentration(ref,trace):
     """
     TODO:    ...
     
-    Calculates the free ligand concentration when considering all footprinted 
-    peaks to diminish the pool of free ligand.
+    Calculates the free ligand concentration.
     
     Returns Lfree_conc.
     """
 
-    sum_fractional_occupancies = 0
     for ref_peak,trace_peaks in give_all_clustered_peaks(ref,trace):
 
         ## WORKAROUND for single trace mode
@@ -568,19 +567,15 @@ def calculate_free_ligand_concentration(ref,trace):
 
         ## DEBUG
         #print(trace_peak)
-        
-        if trace_peak.footprinted_peak:
-            sum_fractional_occupancies += trace_peak.fractional_occupancy
     
     ## DEBUG
-    #print(sum_fractional_occupancies)        
         
-    trace.Lfree_conc = trace.Ltot_conc - trace.Rtot_conc*sum_fractional_occupancies
+    trace_peak.Lfree_conc = trace.Ltot_conc - trace.Rtot_conc*trace_peak.fractional_occupancy
     
     ## to make this reproducible with old evaluations:    
     #Lfree_conc = trace.Ltot_conc 
     
-    return trace.Lfree_conc
+    return trace_peak.Lfree_conc
 
 
 def fitFunc_fR(Lfree_conc, Kd):
@@ -719,8 +714,29 @@ def plot_data(ref, trace_list, cluster):
     return 
 
 
-#def write_data_to_csv(KD_matrix):
-  #return
+def save_kd(kd_matrix, filename="kd-matrix.csv"):
+    """
+    Outputs the KD matrix in a comma-separated table (csv file). The
+filename is
+    as given (no cross-check for pre-existing files of the same name!), and
+the
+    KD matrix which is given, is written to the file.
+
+    The columns are: "Cluster #" (which cluster is evaluated), "KD mean"
+(the fitted
+    KD value), "KD SD" (the estimated standard deviation of the fitted KD
+value),
+    "n" (number of data points used), "n/m" (the ratio of the number of
+data points
+    used to the number of all traces).
+    """
+    import csv
+    with open(filename,"w") as f:
+        w=csv.writer(f)
+        w.writerow(["Cluster #", "KD mean", "KD SD", "n", "m/n"])
+        for row in kd_matrix:
+            w.writerow(row)
+    return
 
 
 if __name__ == "__main__":
