@@ -64,6 +64,7 @@ class Peak:
     def __init__(self, size_bp, peak_height):
         self.size_bp = float(size_bp)
         self.peak_height = float(peak_height)
+        return
     def __repr__(self):
         return repr(vars(self))
     #    return repr({"peak_height" : self.peak_height})
