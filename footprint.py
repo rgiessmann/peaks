@@ -7,7 +7,14 @@ import numpy
 import scipy
 from scipy.optimize import curve_fit
 import matplotlib.pyplot as plt
-   
+import copy
+import pandas
+
+
+## turn on logging
+logging.basicConfig(level=logging.CRITICAL)
+global log
+log = logging   
 
 def main(argv=""):
 
@@ -22,20 +29,20 @@ def main(argv=""):
         ## DEBUG: 
         # print(opts,remaining_args)
     except getopt.GetoptError:
-       print('You provided unusual arguments. Call me with -h to learn more.')
-       sys.exit(2)
+        log.fatal('You provided unusual arguments. Call me with -h to learn more.')
+        sys.exit(2)
     for opt, arg in opts:
-       if opt in ('-h', '--help'):
-           ## TODO
-           print("...help")
-       if opt in ('-c','--config-file'):
-           config_file = arg
-       if opt in ('-i','-input-file'):
-           input_file = arg
+        if opt in ('-h', '--help'):
+            ## TODO
+            print("...help")
+        if opt in ('-c','--config-file'):
+            config_file = arg
+        if opt in ('-i','-input-file'):
+            input_file = arg
     if remaining_args != []:
-        print("You provided too many options. Call me with -h to learn more.")
+        log.error("You provided too many options. Call me with -h to learn more.")
 
- ## -> find test cases in test/ directory!
+    ## -> find test cases in test/ directory!
     
     print("done.")
 
@@ -52,7 +59,6 @@ class Trace:
         return
     def __repr__(self):
         return repr(vars(self))
-    #    return repr({"file_name" : self.file_name, "dye_color" : self.dye_color, "Ltot_conc" : self.Ltot_conc, "peaks" : self.peaks})
 
 class Peak:
     def __init__(self, size_bp, peak_height):
@@ -61,7 +67,6 @@ class Peak:
         return
     def __repr__(self):
         return repr(vars(self))
-    #    return repr({"peak_height" : self.peak_height})
 
 class Index:
     pass    
@@ -94,7 +99,7 @@ def list_traces(read_filelist="../HexA.csv"):
         w.writerow([row[1],row[0],"?","?","?"])
     return storage_traces
 
-def get_data(read_filelist="../HexA.csv"):
+def get_data(read_filelist="../HexA.csv", config_file="../input_traces.csv"):
     """
     Reads data from read_filelist, and returns an object containing all read
     information.
@@ -110,8 +115,6 @@ def get_data(read_filelist="../HexA.csv"):
     trace_list = []
     
     ## TODO: what entries to accept?
-
-    config_file = "../input_traces.csv"
     with open(config_file) as g:
         csv_reader = csv.DictReader(g)
         sample_files = []
@@ -129,20 +132,24 @@ def get_data(read_filelist="../HexA.csv"):
     for file in read_filelist:
         with open(file) as f:            
             csv_reader = csv.reader(f)
-            header = csv_reader.__next__()
+            header = csv_reader.next()
             index = Index()
             index.peak_height = header.index("Height")
             index.size_bp = header.index("Size")
             index.file_name = header.index('Sample File Name')
             index.sample_name = header.index('Sample Name')
-            index.dye = len(header)
-            index.sample_peak = len(header)+1
+            print(header)
             
             for row in csv_reader:
                 #rules for entry acceptance?
 
-                if True: #split_combined_fields == 
+                if "Dye/Sample Peak" in header: #split_combined_fields == 
                     row.extend(row[header.index('Dye/Sample Peak')].split(","))
+                    index.dye = len(header)
+                    index.sample_peak = len(header)+1
+                else:
+                    index.dye = header.index("Dye")
+                    index.sample_peak = header.index("Sample Peak")
                 if row[index.file_name] in sample_file_names and "B" in row[index.dye]:
                     # trace already in trace_list?                                        
                     if row[index.file_name] not in storage_traces:
@@ -168,6 +175,84 @@ def get_data(read_filelist="../HexA.csv"):
     
     return trace_list
 
+def generate_averaged_negative_control(trace_list,accepted_offset=0.5):
+    trace_list_ref = copy.copy(trace_list)
+    conc_0_traces = []
+    for t in trace_list_ref:
+        if t.Ltot_conc == 0:
+            conc_0_traces.append(t)
+    if len(conc_0_traces) > 1:
+        
+        i = 0       
+                                
+        for trace in conc_0_traces:
+            for ref_peak in trace.peaks:                
+                if "cluster" not in vars(ref_peak):
+                    i += 1
+                    ref_peak.cluster = i
+                    for t in conc_0_traces:
+                        for peak in t.peaks:
+                            if peak.size_bp - accepted_offset < ref_peak.size_bp < peak.size_bp + accepted_offset:
+                                if "cluster" not in vars(peak):
+                                    peak.cluster = i
+                                else:
+                                    log.critical("Unclustered peak is lying too close to other ones! This should not happen!")
+            
+        for trace in conc_0_traces[1:]:
+            print("factor:"+str(determine_factor_numerically(conc_0_traces[0],trace)))
+            correct_peaks_with_factor(trace,determine_factor_numerically(conc_0_traces[0],trace))
+            
+                        
+        ref = Trace("averaged_negative_control", "B", 0, 0)
+
+        n = i        
+        for i in range(1,n+1):
+            trace_storage = []
+            for trace in conc_0_traces:
+                for peak in trace.peaks:
+                    if peak.cluster == i:
+                        trace_storage.append(peak)
+            averaged_peak_height_mean = numpy.mean([p.peak_height for p in trace_storage])
+            averaged_peak_height_n = len(trace_storage)
+            averaged_peak_height_sd = numpy.std([p.peak_height for p in trace_storage])
+            averaged_peak_size_bp_mean = numpy.mean([p.size_bp for p in trace_storage])
+            averaged_peak_size_bp_n = len(trace_storage)
+            averaged_peak_size_bp_sd = numpy.std([p.size_bp for p in trace_storage])
+            
+            ref.peaks.append(Peak(averaged_peak_size_bp_mean,averaged_peak_height_mean))
+            ref.peaks[-1].averaged_peak_height_n = averaged_peak_height_n
+            ref.peaks[-1].averaged_peak_height_nm = averaged_peak_height_n / len(conc_0_traces)            
+            ref.peaks[-1].averaged_peak_height_sd = averaged_peak_height_sd
+            ref.peaks[-1].averaged_peak_size_bp_n = averaged_peak_size_bp_n
+            ref.peaks[-1].averaged_peak_size_bp_sd = averaged_peak_size_bp_sd
+            ref.peaks[-1].averaged_peak_size_bp_nm = averaged_peak_size_bp_n / len(conc_0_traces)
+            
+            del(trace_storage)
+            
+    elif len(conc_0_traces) == 1:
+        log.warning("You called generate_averaged_negative_control although only 1 trace with Ltot = 0 is available. Returning the clustered trace.")        
+        ## create new object
+        c = conc_0_traces[0]    
+        ref = Trace(c.file_name, c.dye_color, c.Ltot_conc, c.Rtot_conc)
+        for p in c.peaks:
+            ref.peaks.append(Peak(p.size_bp, p.peak_height))
+
+        i = 0                    
+        for ref_peak in ref.peaks:
+            i += 1
+            ref_peak.cluster = i
+
+    else:
+        log.critical("The provided trace_list contains no negative control traces with Ltot = 0.")
+
+    ## TODO: is this necessary?
+    ## clean-up        
+    for t in trace_list_ref:
+        for p in t.peaks:
+            if "cluster" in vars(p):
+                del(p.cluster)
+                
+    return ref
 
 def cluster_peaks(ref,trace_list,accepted_offset=0.25):
     """
@@ -200,16 +285,16 @@ def cluster_peaks(ref,trace_list,accepted_offset=0.25):
     return 
 
 
-def calculate_deviance_for_all_peaks(ref, trace, weight_smaller=1,weight_bigger=0,relative_mode=False, from_bp=20, to_bp=130,):
+def calculate_deviance_for_all_peaks(ref, trace_list, weight_smaller=1,weight_bigger=1, weight_by_inverse_height=False, from_bp=20, to_bp=170):
     '''
-    Calculates the RMSD for peaks that were identified as clustered in ref, 
+    Calculates the area between peaks that were identified as clustered in ref, 
     compared to trace. Allows for comparison of two traces only.
     
     
     Options weight_smaller, weight_bigger are used to consider only peaks from 
     trace which are smaller or bigger, respectively, than the reference peak.
     
-    Option relative_mode allows to calculate the deviation in relative terms to
+    Option //BROKE relative_mode allows to calculate the deviation in relative terms to
     the reference peak.
     
     ## TODO: 
@@ -218,42 +303,58 @@ def calculate_deviance_for_all_peaks(ref, trace, weight_smaller=1,weight_bigger=
     ## TODO: calculate deviance for trace_list --> saves computing time
     '''
 
+    warning_not_all_peaks_match = False
+    warning_trace_range = False
+
     deviance_for_smaller_peaks = 0
     deviance_for_bigger_peaks = 0        
-    n=0
-    m=0
+    num_smaller=0
+    num_bigger=0
     
-    for ref_peak,trace_peaks in give_all_clustered_peaks(ref,trace):
-
+    for ref_peak,trace_peaks in give_all_clustered_peaks(ref,trace_list):
         ## WORKAROUND for single trace mode
         # if there are no peaks clustered to the ref_peak, they cannot be included --> continue with next pair
         if trace_peaks == []:
-            print("WARNING: Not all peaks match -- omitting deviation for non-comparable peaks.")
+            if warning_not_all_peaks_match == False:
+                log.info("INFO: Not all peaks match -- omitting deviation for non-comparable peaks.")
+                warning_not_all_peaks_match = True
             continue
-
+        
+        if ref_peak.size_bp < from_bp or ref_peak.size_bp > to_bp:
+            if warning_trace_range == False:
+                log.info("INFO: Trace contains peaks which are not included in deviation calculation.")
+                warning_trace_range = True
 
         ## allows to calculate deviance for one trace only
         trace_peak=trace_peaks[0]
         
-        if trace_peak.peak_height <= ref_peak.peak_height:
-            # deviation for smaller, i.e. potentially footprinted peaks
-            if relative_mode: 
-                deviance_for_smaller_peaks += (ref_peak.peak_height - trace_peak.peak_height)/ref_peak.peak_height            
+        if from_bp < ref_peak.size_bp < to_bp:
+            if weight_by_inverse_height == True: 
+                ## this mode calculates deviation as percentage point, with different
+                ## weights for each peak
+                weight = 1/ref_peak.peak_height
             else:
-                deviance_for_smaller_peaks += (ref_peak.peak_height - trace_peak.peak_height)**2    
-            n+=1
-        else:
-            # deviation for bigger, i.e. potentially hypersensitive peaks
-            if relative_mode:
-                deviance_for_bigger_peaks += (ref_peak.peak_height - trace_peak.peak_height)/ref_peak.peak_height                
+                ## similarly weighted, the difference between the two trace functions
+                ## ~ area / integral between traces is calculated
+                weight = 1
+            
+            if trace_peak.peak_height <= ref_peak.peak_height:
+                # deviation for smaller, i.e. potentially footprinted peaks
+                deviance_for_smaller_peaks += abs((ref_peak.peak_height - trace_peak.peak_height)*weight)
+                num_smaller +=1
             else:
-                deviance_for_bigger_peaks += (ref_peak.peak_height - trace_peak.peak_height)**2
-            m+=1
+                # deviation for bigger, i.e. potentially hypersensitive peaks
+                deviance_for_bigger_peaks += abs((ref_peak.peak_height - trace_peak.peak_height)*weight)
+                num_bigger +=1
 
+    weighted_deviation = (weight_smaller*deviance_for_smaller_peaks + weight_bigger*deviance_for_bigger_peaks)
 
-    weighted_rmsd = numpy.sqrt((weight_smaller*deviance_for_smaller_peaks + weight_bigger*deviance_for_bigger_peaks)/(weight_smaller*n+weight_bigger*m))
+    ## possible further outputs:
+    ## num_smaller
+    ## num_bigger
+    ## -> mean deviation per peak ~ normalizing
 
-    return weighted_rmsd 
+    return weighted_deviation
     
     
     
@@ -276,24 +377,23 @@ def give_all_clustered_peaks(ref,trace_list):
             if len(foo) == 1:
                 trace_peaks.append(foo[0])
         if len(ref_peak)==1:
-            if len(trace_peaks) != len(trace_list):
-                print("WARNING: Unable to find clustered peaks for all given traces...")
+            #if len(trace_peaks) != len(trace_list):
+                #print("WARNING: Unable to find clustered peaks for all given traces...")
             yield (ref_peak[0],trace_peaks)
 
 
-def determine_factor_numerically(ref, trace, weight_smaller=1, weight_bigger=1, relative_mode=False):
+def determine_factor_numerically(ref, trace, weight_smaller=1, weight_bigger=1, relative_mode=True, from_bp=20, to_bp=170):
     """
     Determines the optimal factor for trace, when compared to ref. This function
     minimizes the deviation as calculated by calculate_deviance_for_all_peaks()
     with the given options.
     
     Returns the optimal factor.
-
     ## TODO: implement real optimizer via scipy.optimize()    
     """
     
     optimal_factor = 1
-    rmsd_old = calculate_deviance_for_all_peaks(ref,trace,weight_smaller,weight_bigger, relative_mode)
+    rmsd_old = calculate_deviance_for_all_peaks(ref, trace,weight_smaller,weight_bigger, relative_mode, from_bp, to_bp)
 
     ## store original peak heights
     for peak in trace.peaks:
@@ -302,13 +402,14 @@ def determine_factor_numerically(ref, trace, weight_smaller=1, weight_bigger=1, 
     for factor in numpy.arange(0,3.5,0.01):
 
         correct_peaks_with_factor(trace,factor)
+        
+        rmsd_new = calculate_deviance_for_all_peaks(ref,trace,weight_smaller,weight_bigger,relative_mode, from_bp, to_bp)
             
-        rmsd_new = calculate_deviance_for_all_peaks(ref,trace,weight_smaller,weight_bigger,relative_mode)
-                
         ## restore all peak heights to original height
+    
         for peak in trace.peaks:
             peak.peak_height = peak.peak_height_original 
-        
+    
         ## DEBUG
         #print(str(factor)+" : "+str(rmsd_new))
 
@@ -316,7 +417,7 @@ def determine_factor_numerically(ref, trace, weight_smaller=1, weight_bigger=1, 
         if rmsd_new < rmsd_old:
             rmsd_old = rmsd_new
             optimal_factor = factor
-            
+                
     ## in the end: delete stored original peak heights
     for peak in trace.peaks:
         del(peak.peak_height_original)
@@ -324,7 +425,7 @@ def determine_factor_numerically(ref, trace, weight_smaller=1, weight_bigger=1, 
     return optimal_factor
 
 
-def determine_factor_single_peak(ref, trace, weight_smaller=1, weight_bigger=1, relative_mode=False):
+def determine_factor_single_peak(ref, trace_list, weight_smaller=1, weight_bigger=1, relative_mode=False, from_bp=20, to_bp=170):
     """
     Determines the optimal factor for trace, when compared to ref. This function
     minimizes the deviation as calculated by calculate_deviance_for_all_peaks()
@@ -335,42 +436,65 @@ def determine_factor_single_peak(ref, trace, weight_smaller=1, weight_bigger=1, 
 
     """
    
-    optimal_factor = 1
-    rmsd_old = calculate_deviance_for_all_peaks(ref, trace, weight_smaller, weight_bigger, relative_mode)
+    optimal_factors = [1 for trace in trace_list]
+    rmsd_old = calculate_deviance_for_all_peaks(ref, trace_list, weight_smaller, weight_bigger, relative_mode, from_bp, to_bp)
+    which_peak = None
+    
+    print("starting: no calibration --> factors {!s} ; deviation {:8f}".format(optimal_factors, rmsd_old))
+
 
     ## store original peak heights
-    for peak in trace.peaks:
-        peak.peak_height_original = peak.peak_height
+    for trace in trace_list:
+        for peak in trace.peaks:
+            peak.peak_height_original = peak.peak_height
         
-    for ref_peak,trace_peaks in give_all_clustered_peaks(ref,trace):
+    for ref_peak,trace_peaks in give_all_clustered_peaks(ref,trace_list):
 
         ## WORKAROUND for single trace mode
         # if there are no peaks clustered to the ref_peak, they cannot be used --> continue with next cycle
         if trace_peaks == []:
             continue
+        
+        ## if not all peaks are clustered on this ref_peak, they cannot be used --> continue with next cycle
+        if len(trace_peaks) != len(trace_list):
+            continue
 
-        ## works with one trace only 
-        trace_peak = trace_peaks[0]
-        
-        factor =  ref_peak.peak_height / trace_peak.peak_height 
-        correct_peaks_with_factor(trace,factor)
             
-        #use calculate_deviance_for_all_peaks with trace and ref
-        rmsd_new = calculate_deviance_for_all_peaks(ref,trace, weight_smaller, weight_bigger, relative_mode)
-     
+        testing_factors = []
+        
+        ## works with one trace at a time
+        for index, trace_peak in enumerate(trace_peaks):
+            ## have to rely on trace_peaks coming in same order as trace_list ...
+            factor =  ref_peak.peak_height / trace_peak.peak_height
+            correct_peaks_with_factor(trace_list[index],factor)
+            testing_factors.append(factor)
+            ## DEBUG
+            print("testing: trace # {:2} on cluster {:3} @ {:8.1f} bp --> factor {:4.2f}".format(index, trace_peak.cluster, trace_peak.size_bp, factor))
+
+        ## use calculate_deviance_for_all_peaks with trace and ref
+        rmsd_new = calculate_deviance_for_all_peaks(ref,trace_list, weight_smaller, weight_bigger, relative_mode, from_bp, to_bp)
+
         ## restore all peak heights to original height
-        for peak in trace.peaks:
-            peak.peak_height = peak.peak_height_original 
-        
-        ## DEBUG        
-        #print(str(ref_peak.cluster) + " " + str(ref_peak.size_bp) + " -- " + str(factor)+" : "+str(rmsd_new))
-        
-        #compare deviance_new with deviance_old, if better deviance_new -> deviance_old, else delete deviance_new
-        if rmsd_new < rmsd_old:
+        for trace in trace_list:
+            for peak in trace.peaks:
+                peak.peak_height = peak.peak_height_original 
+
+        ## DEBUG
+        print("was testing: all traces on cluster {:3} @ {:8.1f} bp --> deviation {:8f}".format(ref_peak.cluster, ref_peak.size_bp, rmsd_new))
+                    
+        ## compare deviance_new with deviance_old, if better deviance_new -> deviance_old, else delete deviance_new
+        if rmsd_new <= rmsd_old:
             rmsd_old = rmsd_new
-            optimal_factor = factor
-            
-    return optimal_factor
+            optimal_factors = testing_factors
+            which_peak = ref_peak
+        
+    if which_peak == None:
+        print("no peak would be better than current factorization --> factors {!s} ; deviation {:8f}".format( optimal_factors, rmsd_old))
+    else:
+         ## DEBUG        
+        print("found optimal: cluster {:3} @ {:8.1f} bp --> factors {!s} ; deviation {:8f}".format(which_peak.cluster, which_peak.size_bp, optimal_factors, rmsd_old))
+
+    return optimal_factors 
 
 
 def correct_peaks_with_factor(trace, factor):
@@ -378,7 +502,7 @@ def correct_peaks_with_factor(trace, factor):
     Corrects all peak_heights in trace with factor. The multiplication is applied
     directly to the object given as argument.
     """
-        
+
     for peak in trace.peaks:
         peak.peak_height = peak.peak_height * factor
 
@@ -402,11 +526,11 @@ def mark_footprinted_peaks(ref, trace, threshold=0.1):
 
     for ref_peak,trace_peaks in give_all_clustered_peaks(ref,trace):
 
-        ##DEBUG
-        #print(ref_peak,trace_peaks)
-        
-        ## WORKAROUND for single trace mode
-        # if there are no peaks clustered to the ref_peak, they cannot be marked --> continue with next cycle
+    ##DEBUG
+    #print(ref_peak,trace_peaks)
+    
+    ## WORKAROUND for single trace mode
+    # if there are no peaks clustered to the ref_peak, they cannot be marked --> continue with next cycle
         if trace_peaks == []:
             continue
         
@@ -431,42 +555,39 @@ def add_fractional_occupancies(ref,trace):
         for trace_peak in trace_peaks:
             trace_peak.fractional_occupancy = 1 - trace_peak.peak_height / ref_peak.peak_height        
 
-    return
+    return 
 
 
-def calculate_free_ligand_concentration(ref,trace):
+def calculate_free_ligand_concentration(ref,trace,mode="Ltot"):
     """
     TODO:    ...
     
-    Calculates the free ligand concentration when considering all footprinted 
-    peaks to diminish the pool of free ligand.
+    Calculates the free ligand concentration.
     
     Returns Lfree_conc.
     """
-
-    sum_fractional_occupancies = 0
-    for ref_peak,trace_peaks in give_all_clustered_peaks(ref,trace):
-
+    
+    ## // BROKEN
+    #for ref_peak,trace_peaks in give_all_clustered_peaks(ref,trace):
         ## WORKAROUND for single trace mode
         # if there are no peaks clustered to the ref_peak, they don't need to be considered --> continue with next cycle
-        if trace_peaks == []:
-            #print("Skipping in calc_Lfree_conc")
-            continue
-        
+        #if trace_peaks == []:
+        #    #print("Skipping in calc_Lfree_conc")
+        #    continue
         ## works for one trace only
-        trace_peak = trace_peaks[0]
-
+        #trace_peak = trace_peaks[0]
         ## DEBUG
         #print(trace_peak)
-        
-        if trace_peak.footprinted_peak:
-            sum_fractional_occupancies += trace_peak.fractional_occupancy
+        ## DEBUG
+        #trace_peak.Lfree_conc = trace.Ltot_conc - trace.Rtot_conc*trace_peak.fractional_occupancy
     
-    ## DEBUG
-    #print(sum_fractional_occupancies)        
-        
-    Lfree_conc = trace.Ltot_conc - trace.Rtot_conc*sum_fractional_occupancies
-
+    if mode=="Ltot":
+    ## to make this reproducible with old evaluations:    
+        Lfree_conc = trace.Ltot_conc 
+    else:
+        ## no other modes than "Ltot" available!
+        raise
+    
     return Lfree_conc
 
 
@@ -476,8 +597,10 @@ def fitFunc_fR(Lfree_conc, Kd):
     ## x = Lfree_conc
     ## to be fitted: Kd
     
-    ## fR = (Lfree_conc)/(Lfree_conc + Kd)
-    return (Lfree_conc)/(Lfree_conc + Kd)
+    fR = (Lfree_conc)/(Lfree_conc + Kd)
+    
+    return fR
+
 
 def fit_data_determine_kd(ref, trace_list):
     """
@@ -500,18 +623,20 @@ def fit_data_determine_kd(ref, trace_list):
         xdata = []
         ydata = []
 
+        ## DEBUG
+        #print(ref_peak,trace_peak)            
+        
+        ## TODO: can we truly assume this all the time?!
+        xdata.append(0) #ref.Ltot_conc)
+        ydata.append(0) #ref_peak.fractional_occupancy)
+        ## alternative:
+        # xdata.append(ref.Ltot_conc)
+        # ydata.append(ref_peak.fractional_occupancy)
+        ## -> doesn't work, because fractional_occupancies are not set for ref, so far...
+
+
         for trace_peak in trace_peaks:
 
-            ## DEBUG
-            #print(ref_peak,trace_peak)            
-            
-            ## TODO: can we truly assume this all the time?!
-            xdata.append(0) #ref.Ltot_conc)
-            ydata.append(0) #ref_peak.fractional_occupancy)
-            ## alternative:
-            # xdata.append(ref.Ltot_conc)
-            # ydata.append(ref_peak.fractional_occupancy)
-            ## -> doesn't work, because fractional_occupancies are not set for ref, so far...
 
 
             if trace_peak.footprinted_peak == True:
@@ -523,16 +648,20 @@ def fit_data_determine_kd(ref, trace_list):
 
         ## DEBUG
         #print(xdata,ydata)
-        
+
+                
         ## fitting...
         popt, pcov= curve_fit(fitFunc_fR, xdata, ydata)
 
         # compute SE, i.e. standard deviation errors 
         perr = numpy.sqrt(numpy.diag(pcov))
 
+        print(str(ref_peak.cluster), popt[0], perr[0])
+
         ## save results...
         ## TODO: optimize this form.
-        KD_matrix.append(["cluster "+str(ref_peak.cluster), popt[0], perr[0]])
+        #KD_matrix.append(["cluster "+str(ref_peak.cluster), popt[0], perr[0]])
+        KD_matrix.append(["cluster "+str(ref_peak.cluster), popt[0], perr[0], len(ydata), float(len(ydata))/float(len(trace_list))])
 
     return KD_matrix
 
@@ -549,28 +678,32 @@ def generate_xdata_ydata(ref,trace_list,cluster):
 
         ## assumes that there is only one ref_peak with correct cluster number
         if ref_peak.cluster == cluster:
+
+            ## TODO: can we truly assume this all the time?!
+            xdata.append(0) #ref.Ltot_conc)
+            ydata.append(0) #ref_peak.fractional_occupancy)
+            ## alternative:
+            # xdata.append(ref.Ltot_conc)
+            # ydata.append(ref_peak.fractional_occupancy)
+            ## -> doesn't work, because fractional_occupancies are not set for ref, so far...
+
             
             for trace_peak in trace_peaks:        
                 ## DEBUG
                 #print(ref_peak,trace_peak)            
-                
-                ## TODO: can we truly assume this all the time?!
-                xdata.append(0) #ref.Ltot_conc)
-                ydata.append(0) #ref_peak.fractional_occupancy)
-                ## alternative:
-                # xdata.append(ref.Ltot_conc)
-                # ydata.append(ref_peak.fractional_occupancy)
-                ## -> doesn't work, because fractional_occupancies are not set for ref, so far...
-        
+                        
                 if trace_peak.footprinted_peak == True:
                     xdata.append(calculate_free_ligand_concentration(ref, [trace for trace in trace_list if trace_peak in trace.peaks][0]))
                     ydata.append(trace_peak.fractional_occupancy)
+                    
             break
     return xdata, ydata
             
 
-def plot_data(ref, trace_list, cluster):
+def plot_data(ref, trace_list, cluster, kd_matrix):
 
+    fig, ax = plt.subplots(1)
+    
     plt.title("Cluster " + str(cluster))
     plt.ylabel('Fractional Occupancy', fontsize = 16)
     plt.xlabel('Free Ligand Concentration', fontsize = 16)
@@ -579,27 +712,132 @@ def plot_data(ref, trace_list, cluster):
 
     ## plot points
     xdata, ydata = generate_xdata_ydata(ref,trace_list,cluster)                
-    plt.plot(xdata,ydata, 'o')
+    ax.plot(xdata,ydata, 'o')
 
 
     ## plot line
-    kd_matrix = fit_data_determine_kd(ref, trace_list)
     kd = [entry[1] for entry in kd_matrix if entry[0] == "cluster "+str(cluster)]
 
     import numpy
 
     x = numpy.linspace(0,15,1000) # linearly spaced numbers
     y = fitFunc_fR(x,kd)
-    plt.plot(x,y)
+    ax.plot(x,y)
     
     ## show plot
+    plt
+    
+    bp  = float([ref_peak.size_bp for ref_peak in ref.peaks if ref_peak.cluster == cluster][0])
+    n   = int([entry[3] for entry in kd_matrix if entry[0] == "cluster "+str(cluster)][0])
+    n_m = float([entry[4] for entry in kd_matrix if entry[0] == "cluster "+str(cluster)][0])
+    kd  = float([entry[1] for entry in kd_matrix if entry[0] == "cluster "+str(cluster)][0])
+    std = float([entry[2] for entry in kd_matrix if entry[0] == "cluster "+str(cluster)][0])
+    
+    textstr = """\
+    pos = {:4.1f} bp
+    n   = {}
+    n/m = {:3.2}
+    $K_D$ = {:3.2f} $\pm$ {:3.2f} $\mu$M
+    """.format(bp, n, n_m, kd, std)
+
+
+    # place a text box in upper left in axes coords
+    props = dict(facecolor='wheat', alpha=0.5)
+
+    # place a text box in upper left in axes coords
+    ax.text(0.05, 0.95, textstr, transform=ax.transAxes, fontsize=14, family="monospace",
+        verticalalignment='top', bbox=props)
+    
     plt.show()
     
-    return 
+    return
 
 
-#def write_data_to_csv(KD_matrix):
-  #return
+def save_kd(kd_matrix, filename="kd-matrix.csv"):
+    """
+    Outputs the KD matrix in a comma-separated table (csv file). The
+filename is
+    as given (no cross-check for pre-existing files of the same name!), and
+the
+    KD matrix which is given, is written to the file.
+
+    The columns are: "Cluster #" (which cluster is evaluated), "KD mean"
+(the fitted
+    KD value), "KD SD" (the estimated standard deviation of the fitted KD
+value),
+    "n" (number of data points used), "n/m" (the ratio of the number of
+data points
+    used to the number of all traces).
+    """
+    import csv
+    with open(filename,"w") as f:
+        w=csv.writer(f)
+        w.writerow(["Cluster #", "KD mean", "KD SD", "n", "m/n"])
+        for row in kd_matrix:
+            w.writerow(row)
+    return
+
+
+def plot_peakscan(ref, trace_list):
+
+    _columns=["trace", "cluster","peak_height"]
+
+    df = pandas.DataFrame(data=None, columns=_columns)
+    
+    iterlist = copy.copy(trace_list)
+    iterlist.append(ref)
+    
+    for trace in iterlist:
+
+        ddict = {"trace" : [trace.file_name for peak in trace.peaks], "cluster" : [float(peak.cluster) for peak in trace.peaks], "peak_height" : [peak.peak_height for peak in trace.peaks] }
+        row = pandas.DataFrame.from_dict(data=ddict)
+
+        zerorow1 = row.copy()
+        zerorow1["cluster"] = zerorow1["cluster"] - 0.5
+        zerorow1["peak_height"] = 0.0
+
+        zerorow2 = row.copy()
+        zerorow2["cluster"] = zerorow2["cluster"] + 0.5
+        zerorow2["peak_height"] = 0.0
+
+        row = row.append(zerorow1, ignore_index=True)
+        row = row.append(zerorow2, ignore_index=True)
+
+        row = row.sort_values(by="cluster")
+
+        df = df.append(row, ignore_index=True)
+
+        #print row
+        ## WORKAROUND
+        #break
+
+    #df.head(n=15).plot.line(x="cluster", )
+    #df.plot.line()
+
+    import matplotlib.pyplot as plt
+
+    fig, ax = plt.subplots(figsize=(13,15))
+
+    for label, df2 in df.groupby('trace'):
+        if label=="averaged_negative_control":
+            df2.plot(x="cluster", y="peak_height", kind="line", ax=ax, label=label, marker="s", linewidth=2)
+        else:
+            #print label
+            df2.plot(x="cluster", y="peak_height", kind="line", ax=ax, label=label)
+        
+        #print df2.head(n=15)
+        #break
+
+
+    #ax.set_xlim([0, 5])
+    leg = plt.legend(loc="upper right", ncol=2)
+    for legobj in leg.legendHandles:
+        legobj.set_linewidth(3.0)
+
+    plt.show()
+    
+    return
+
 
 
 if __name__ == "__main__":
