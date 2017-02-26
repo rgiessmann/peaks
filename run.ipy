@@ -3,7 +3,7 @@
 # In[1]:
 # -------------------------------- #
 ### set plotting options
-#get_ipython().magic(u'matplotlib')
+get_ipython().magic(u'matplotlib')
 # -------------------------------- #
 
 
@@ -25,7 +25,7 @@ trace_list = footprint.get_data("data/peak_export.csv", "data/input_traces.csv")
 # -------------------------------- #
 ### Set options
 ## accepted_offset: peaks are clustered, if their size (=bp) lies within this difference (in bp)
-## facotr_method: if "num" look for optimal factor (free-floating), if "peak" find a footprinting-insensitive peak
+## factor_method: if "num" look for optimal factor (free-floating), if "peak" find a footprinting-insensitive peak
 ## weight_smaller/weight_bigger: importance of misfit peaks which are smaller / bigger than reference peaks
 ## relative_mode: if "True" determine the importance of misfit peaks due to their relative size compared to the reference peak, if "False" consider absolute difference (in AU)
 ## from_bp/ to_bp: peaks in this interval of sizes (=bp) shall be considered for analysis.
