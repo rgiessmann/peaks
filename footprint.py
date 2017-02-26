@@ -9,7 +9,7 @@ from scipy.optimize import curve_fit
 import matplotlib.pyplot as plt
 import copy
 import pandas
-
+import scipy.optimize
 
 ## turn on logging
 logging.basicConfig(level=logging.CRITICAL)
@@ -317,6 +317,8 @@ def generate_averaged_negative_control(trace_list,accepted_offset=0.5, factor_me
     ## TODO: is this necessary?
     ## clean-up        
     del(trace_list_ref)
+    
+    ref.peaks = sorted(ref.peaks, key=lambda k: k.size_bp)
                 
     return ref
 
@@ -527,7 +529,7 @@ def give_all_clustered_peaks(ref,trace_list):
             yield (ref_peak[0],trace_peaks)
 
 
-def determine_factor_numerically(ref, trace, weight_smaller=1, weight_bigger=1, relative_mode=True, from_bp=20, to_bp=170):
+def determine_factor_numerically(ref, trace_list, weight_smaller=1, weight_bigger=1, relative_mode=False, from_bp=20, to_bp=170):
     """
     Determines the optimal factor for trace, when compared to ref. This function
     minimizes the deviation as calculated by calculate_deviance_for_all_peaks()
@@ -537,38 +539,56 @@ def determine_factor_numerically(ref, trace, weight_smaller=1, weight_bigger=1, 
     ## TODO: implement real optimizer via scipy.optimize()    
     """
     
-    optimal_factor = 1
-    rmsd_old = calculate_deviance_for_all_peaks(ref, trace,weight_smaller,weight_bigger, relative_mode, from_bp, to_bp)
-
-    ## store original peak heights
-    for peak in trace.peaks:
-        if "peak_height_original" not in vars(peak):
-            peak.peak_height_original = peak.peak_height
-        else:
-            ## was already modified by factor
-            peak.peak_height_original = peak.peak_height_original 
-            pass
-    for factor in numpy.arange(0,3.5,0.01):
-
-        correct_peaks_with_factor(trace,factor)
+    optimal_factors = [1 for trace in trace_list]
+    rmsd_old = calculate_deviance_for_all_peaks(ref, trace_list, weight_smaller, weight_bigger, relative_mode, from_bp, to_bp)
+    
+    print("starting: no calibration --> factors {!s} ; deviation {:8f}".format(optimal_factors, rmsd_old))
+    
+    for index, trace in enumerate(trace_list):
         
-        rmsd_new = calculate_deviance_for_all_peaks(ref,trace,weight_smaller,weight_bigger,relative_mode, from_bp, to_bp)
-            
-        ## restore all peak heights to original height
-    
+        ## store original peak heights
         for peak in trace.peaks:
-            peak.peak_height = peak.peak_height_original 
-    
-        ## DEBUG
-        #print(str(factor)+" : "+str(rmsd_new))
-
-        #compare deviance_new with deviance_old, if better deviance_new -> deviance_old, else delete deviance_new
-        if rmsd_new < rmsd_old:
-            rmsd_old = rmsd_new
-            optimal_factor = factor
+            if "peak_height_original" not in vars(peak):
+                peak.peak_height_original = peak.peak_height
+            else:
+                ## was already modified by factor
+                peak.peak_height_original = peak.peak_height_original 
+                pass
                 
     
-    return optimal_factor
+        def cost_function(x):
+            _factor = x
+            
+            correct_peaks_with_factor(trace,_factor)
+            rmsd_new = calculate_deviance_for_all_peaks(ref,trace,weight_smaller,weight_bigger,relative_mode, from_bp, to_bp)
+            return rmsd_new
+        
+        x0 = [0.]
+        min_result = scipy.optimize.minimize(cost_function, x0, method='nelder-mead') #, options={'disp': True})
+        optimal_factor = min_result.x[0]
+        
+        print("found optimal: deviation {:8f} --> factor {:4.2f} ".format(cost_function(optimal_factor), optimal_factor))
+
+        optimal_factors[index] = optimal_factor
+                
+    ##
+    for index, trace in enumerate(trace_list):
+        correct_peaks_with_factor(trace_list[index],optimal_factors[index])
+        print("calculating: trace # {:2} --> factor {:4.2f}".format(index, optimal_factors[index]))
+
+    ## use calculate_deviance_for_all_peaks with trace and ref
+    rmsd_new = calculate_deviance_for_all_peaks(ref,trace_list, weight_smaller, weight_bigger, relative_mode, from_bp, to_bp)
+
+    print("found optimal: deviation {:8f} --> factors {!s} ".format(rmsd_new, optimal_factors))
+    
+    
+    ## restore all peak heights to original height
+    for trace in trace_list:
+        for peak in trace.peaks:
+            peak.peak_height = peak.peak_height_original 
+
+        
+    return optimal_factors
 
 
 def determine_factor_single_peak(ref, trace_list, weight_smaller=1, weight_bigger=1, relative_mode=False, from_bp=20, to_bp=170):
@@ -663,7 +683,7 @@ def correct_peaks_with_factor(trace, factor):
     return
 
 
-def mark_footprinted_peaks(ref, trace, threshold=0.1):
+def mark_footprinted_peaks(ref, trace_list, threshold=0.1, mark_all=False):
     """
     Marks potentially footprinted peaks, i.e. peaks to be evaluated, by setting
     the flag footprinted_peak, if the peak_heights of ref and trace differ by
@@ -674,11 +694,9 @@ def mark_footprinted_peaks(ref, trace, threshold=0.1):
     to False.
     
     Modifies the object trace directly.
-    
-    ## TODO: implement trace_list -> saves computing time
     """
 
-    for ref_peak,trace_peaks in give_all_clustered_peaks(ref,trace):
+    for ref_peak,trace_peaks in give_all_clustered_peaks(ref,trace_list):
 
     ##DEBUG
     #print(ref_peak,trace_peaks)
@@ -688,24 +706,34 @@ def mark_footprinted_peaks(ref, trace, threshold=0.1):
         if trace_peaks == []:
             continue
         
-        ## works for one trace only
-        trace_peak = trace_peaks[0]
-        
-        if ref_peak.peak_height - trace_peak.peak_height > threshold*ref_peak.peak_height and ref.Ltot_conc != trace.Ltot_conc:
-            trace_peak.footprinted_peak = True
-        else:
-            trace_peak.footprinted_peak = False        
+        for trace_peak in trace_peaks:
+            if ref_peak.peak_height - trace_peak.peak_height > threshold*ref_peak.peak_height:
+                trace = [t for t in trace_list if trace_peak in t.peaks]
+                if len(trace) == 1:
+                    trace = trace[0]
+                else:
+                    logging.critical("!")
+                    raise Exception
+                if ref.Ltot_conc != trace.Ltot_conc:
+                    trace_peak.footprinted_peak = True
+                else:
+                    trace_peak.footprinted_peak = False                
+            else:
+                trace_peak.footprinted_peak = False        
+                
+            if mark_all == True:
+                trace_peak.footprinted_peak = True
             
     return 
 
-def add_fractional_occupancies(ref,trace):
+def add_fractional_occupancies(ref,trace_list):
     """
     TODO:    ...
     
     Modifies the object trace directly.
     """
 
-    for ref_peak,trace_peaks in give_all_clustered_peaks(ref,trace):
+    for ref_peak,trace_peaks in give_all_clustered_peaks(ref,trace_list):
         for trace_peak in trace_peaks:
             trace_peak.fractional_occupancy = 1 - trace_peak.peak_height / ref_peak.peak_height        
 
@@ -780,14 +808,6 @@ def fit_data_determine_kd(ref, trace_list):
         ## DEBUG
         #print(ref_peak,trace_peak)            
         
-        ## TODO: can we truly assume this all the time?!
-        xdata.append(0) #ref.Ltot_conc)
-        ydata.append(0) #ref_peak.fractional_occupancy)
-        ## alternative:
-        # xdata.append(ref.Ltot_conc)
-        # ydata.append(ref_peak.fractional_occupancy)
-        ## -> doesn't work, because fractional_occupancies are not set for ref, so far...
-
 
         for trace_peak in trace_peaks:
 
@@ -810,12 +830,13 @@ def fit_data_determine_kd(ref, trace_list):
         # compute SE, i.e. standard deviation errors 
         perr = numpy.sqrt(numpy.diag(pcov))
 
-        print(str(ref_peak.cluster), popt[0], perr[0])
 
         ## save results...
         ## TODO: optimize this form.
         #KD_matrix.append(["cluster "+str(ref_peak.cluster), popt[0], perr[0]])
         KD_matrix.append(["cluster "+str(ref_peak.cluster), popt[0], perr[0], len(ydata), float(len(ydata))/float(len(trace_list))])
+        print(KD_matrix[-1])
+
 
     return KD_matrix
 
@@ -832,16 +853,6 @@ def generate_xdata_ydata(ref,trace_list,cluster):
 
         ## assumes that there is only one ref_peak with correct cluster number
         if ref_peak.cluster == cluster:
-
-            ## TODO: can we truly assume this all the time?!
-            xdata.append(0) #ref.Ltot_conc)
-            ydata.append(0) #ref_peak.fractional_occupancy)
-            ## alternative:
-            # xdata.append(ref.Ltot_conc)
-            # ydata.append(ref_peak.fractional_occupancy)
-            ## -> doesn't work, because fractional_occupancies are not set for ref, so far...
-
-            
             for trace_peak in trace_peaks:        
                 ## DEBUG
                 #print(ref_peak,trace_peak)            
