@@ -132,7 +132,7 @@ def get_data(read_filelist="../HexA.csv", config_file="../input_traces.csv"):
     for file in read_filelist:
         with open(file) as f:            
             csv_reader = csv.reader(f)
-            header = csv_reader.next()
+            header = next(csv_reader)
             index = Index()
             index.peak_height = header.index("Height")
             index.size_bp = header.index("Size")
@@ -623,7 +623,6 @@ def determine_factor_single_peak(ref, trace_list, weight_smaller=1, weight_bigge
     for ref_peak,trace_peaks in give_all_clustered_peaks(ref,trace_list):
 
         ## WORKAROUND for single trace mode
-        # if there are no peaks clustered to the ref_peak, they cannot be used --> continue with next cycle
         if trace_peaks == []:
             continue
         
