@@ -82,7 +82,7 @@ def list_traces(read_filelist="../HexA.csv"):
     storage_traces = []
     for file in read_filelist:
         csv_reader = csv.reader(open(file))
-        header = csv_reader.__next__()
+        header = next(csv_reader)
         index = Index()
         index.file_name = header.index('Sample File Name')
         index.sample_name = header.index('Sample Name')
