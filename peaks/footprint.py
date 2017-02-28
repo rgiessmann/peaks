@@ -244,7 +244,7 @@ def generate_averaged_negative_control(trace_list,accepted_offset=0.5, factor_me
                     for peak in trace.peaks:
                         if peak.cluster == i:
                             trace_storage.append(peak)
-                print trace_storage
+                print(trace_storage)
 
                 averaged_peak_height_mean = numpy.mean([p.peak_height for p in trace_storage])
                 averaged_peak_size_bp_mean = numpy.mean([p.size_bp for p in trace_storage])
@@ -256,7 +256,7 @@ def generate_averaged_negative_control(trace_list,accepted_offset=0.5, factor_me
             ## 2. fit optimal factors
             cluster_peaks(ref, conc_0_traces, accepted_offset=accepted_offset)
 
-            #print conc_0_traces
+            #print(conc_0_traces)
             
             if factor_method == "num":
                 optimal_factors = determine_factor_numerically(ref, conc_0_traces, *args, **kwargs)
