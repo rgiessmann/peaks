@@ -897,14 +897,22 @@ def plot_data(ref, trace_list, cluster, kd_matrix):
     kd  = float([entry[1] for entry in kd_matrix if entry[0] == "cluster "+str(cluster)][0])
     std = float([entry[2] for entry in kd_matrix if entry[0] == "cluster "+str(cluster)][0])
     
+    ref_height  = float([ref_peak.peak_height for ref_peak in ref.peaks if ref_peak.cluster == cluster][0])
+    ref_height_sd  = float([ref_peak.averaged_peak_height_sd for ref_peak in ref.peaks if ref_peak.cluster == cluster][0])
+    ref_peak_quality = float([ref_peak.averaged_peak_height_nm for ref_peak in ref.peaks if ref_peak.cluster == cluster][0])
+
+    print(n, n_m, kd, std, bp, ref_height , ref_height_sd , ref_peak_quality)
+    
     textstr = """\
-    pos = {:4.1f} bp
     n   = {}
-    n/m = {:3.2}
+    n/m = {:3.2f}
     $K_D$ = {:3.2f} $\pm$ {:3.2f} $\mu$M
-    """.format(bp, n, n_m, kd, std)
-
-
+    
+    ref_pos = {:4.1f} bp
+    ref_height = {:5.1f} $\pm$ {:5.1f} A.U.
+    ref_quality = {:3.2f}
+    """.format(n, n_m, kd, std, bp, ref_height , ref_height_sd , ref_peak_quality)
+    
     # place a text box in upper left in axes coords
     props = dict(facecolor='wheat', alpha=0.5)
 
