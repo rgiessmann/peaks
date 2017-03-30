@@ -1,6 +1,2 @@
-
-footprint_old.gitignore.py
-
-footprint.pyc
-
+.ipynb_checkpoints*
 *.pyc
