@@ -130,17 +130,15 @@ class Footprinter():
             for row in csv_reader:
                 sample_files.append(row)
 
-        
-        sample_file_names = []
-        read_filelist = []
-        for i in sample_files:
-            sample_file_names.append(i[NAME_sample_id]) 
-            read_filelist.append(i[NAME_sample_file])
-        read_filelist = set(read_filelist)
-        
         storage_traces = []
-        for file in read_filelist:
-            with open(file) as f:            
+            
+        for i in sample_files:
+            sample_name = i[NAME_sample_id]
+            read_file = i[NAME_sample_file]
+            
+            print("Trying to add trace {} from file {}...".format(sample_name, read_file))
+            
+            with open(read_file) as f:            
                 csv_reader = csv.reader(f)
                 header = next(csv_reader)
                 index = Index()
@@ -148,8 +146,8 @@ class Footprinter():
                 index.size_bp = header.index("Size")
                 index.file_name = header.index('Sample File Name')
                 #index.sample_name = header.index('Sample Name')
-                print(header)
-
+                #print(header)
+                
                 for row in csv_reader:
                     #rules for entry acceptance?
 
@@ -160,7 +158,7 @@ class Footprinter():
                     else:
                         index.dye = header.index("Dye")
                         index.sample_peak = header.index("Sample Peak")
-                    if row[index.file_name] in sample_file_names and "B" in row[index.dye]:
+                    if row[index.file_name] == sample_name and "B" in row[index.dye]:
                         # trace already in trace_list?                                        
                         if row[index.file_name] not in storage_traces:
                             # Nope.
@@ -179,7 +177,7 @@ class Footprinter():
                         t.peaks.append(Peak(row[index.size_bp], row[index.peak_height]))
                         del(t)            
 
-        for foo in sample_file_names:
+        for foo in [sample_file[NAME_sample_id] for sample_file in sample_files]:
             if foo not in storage_traces:
                 print("Couldn't find trace "+str(foo)+" in the given files...")        
 
