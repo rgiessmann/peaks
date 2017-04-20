@@ -33,14 +33,14 @@ trace_list = footprint.get_data("./input_traces.csv")
 
 _accepted_offset = 0.5
 _factor_method   = "num"
-_weight_smaller  = 1
-_weight_bigger   = 1
+_weight_smaller  = .5
+_weight_bigger   = .5
 _relative_mode   = True
 _from_bp         = 50
 _to_bp           = 200
 
 ### Generate the reference trace
-ref = footprint.generate_averaged_negative_control(trace_list,accepted_offset=_accepted_offset,factor_method=_factor_method, weight_smaller=_weight_smaller, weight_bigger=_weight_bigger, relative_mode=_relative_mode, from_bp=_from_bp, to_bp=_to_bp)
+ref = footprint.generate_averaged_negative_control(trace_list,accepted_offset=_accepted_offset,factor_method=_factor_method, weight_smaller=0.5, weight_bigger=0.5, relative_mode=_relative_mode, from_bp=_from_bp, to_bp=_to_bp)
 # -------------------------------- #
 
 
@@ -48,13 +48,21 @@ ref = footprint.generate_averaged_negative_control(trace_list,accepted_offset=_a
 # -------------------------------- #
 ### Print information about the newly created internal reference 
 footprint.cluster_peaks(ref,[ref],accepted_offset=_accepted_offset)
+print("--- Giving you an overview of the reference trace: ---")
 for ref_peak in ref.peaks:
-        print("cluster: {:3} ref_peak_size: {:8.2f} bp;   ref_peak_height: {:8.1f} AU;    n/N: [size: {:3.2f}, height: {:3.2f}]".format(ref_peak.cluster, ref_peak.size_bp, ref_peak.peak_height, ref_peak.averaged_peak_size_bp_nm,ref_peak.averaged_peak_height_nm ))
+        print("cluster: {:3} ref_peak_size: {:8.2f} bp;   ref_peak_height: {:8.1f} * (1 +- {:4.1f} %) AU;    n/N: [size: {:3.2f}, height: {:3.2f}]".format(ref_peak.cluster, ref_peak.size_bp, ref_peak.peak_height, ref_peak.averaged_peak_height_sd/ref_peak.peak_height*100, ref_peak.averaged_peak_size_bp_nm,ref_peak.averaged_peak_height_nm ))
+print("--- DONE ---")
 # -------------------------------- #
-
 
 # In[24]:
 # -------------------------------- #
 ### Draw a control plot regarding the quality of reference traces 
 footprint.plot_height_size_clustering_success_averaged_negative_control(ref)
+# -------------------------------- #
+
+
+# In[26]:
+# -------------------------------- #
+### Draw an overview plot of heights and standard deviations of internal reference peaks
+footprint.plot_height_size_overview_averaged_negative_control(ref, ylim=(0,1000))
 # -------------------------------- #
