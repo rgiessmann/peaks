@@ -36,7 +36,7 @@ _factor_method   = "num"
 _weight_smaller  = .5
 _weight_bigger   = .5
 _relative_mode   = True
-_from_bp         = 50
+_from_bp         = 0
 _to_bp           = 200
 
 ### Generate the reference trace

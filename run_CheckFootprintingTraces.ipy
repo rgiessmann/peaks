@@ -33,10 +33,10 @@ trace_list = footprint.get_data("./input_traces.csv")
 
 _accepted_offset = 0.5
 _factor_method   = "num"
-_weight_smaller  = .1
-_weight_bigger   = 1
+_weight_smaller  = .5
+_weight_bigger   = .5
 _relative_mode   = True
-_from_bp         = 50
+_from_bp         = 0
 _to_bp           = 200
 
 ### Generate the reference trace

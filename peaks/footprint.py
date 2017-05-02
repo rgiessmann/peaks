@@ -313,6 +313,12 @@ class Footprinter():
             ref = Trace(c.file_name, c.dye_color, c.Ltot_conc, c.Rtot_conc)
             for p in c.peaks:
                 ref.peaks.append(Peak(p.size_bp, p.peak_height))
+                ref.peaks[-1].averaged_peak_height_n = 1
+                ref.peaks[-1].averaged_peak_height_nm = 1
+                ref.peaks[-1].averaged_peak_height_sd = 0 
+                ref.peaks[-1].averaged_peak_size_bp_n = 1 
+                ref.peaks[-1].averaged_peak_size_bp_sd = 0
+                ref.peaks[-1].averaged_peak_size_bp_nm = 1
 
             i = 0                    
             for ref_peak in ref.peaks:
