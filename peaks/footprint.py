@@ -181,7 +181,7 @@ class Footprinter():
 
         return trace_list
 
-    def generate_averaged_negative_control(self, trace_list,accepted_offset=0.5, factor_method="peak", *args, **kwargs):
+    def generate_averaged_negative_control(self, trace_list,accepted_offset=0.5, factor_method="peak", normalize_to=1000, *args, **kwargs):
 
         ## clean up trace_list, in case it was processed already.
         trace_list_ref = copy.copy(trace_list)
@@ -330,12 +330,14 @@ class Footprinter():
 
             
         ## normalize to largest peak
-        
-        normalize_to  = max([peak.peak_height for peak in ref.peaks])
-        normalize_to /= 1000.0
-        for i in range(len(ref.peaks)):
-            ref.peaks[i].peak_height              /= normalize_to 
-            ref.peaks[i].averaged_peak_height_sd  /= normalize_to
+        if normalize_to is None:
+            pass
+        else:
+            normalize_to  = max([peak.peak_height for peak in ref.peaks])
+            normalize_to /= 1000.0
+            for i in range(len(ref.peaks)):
+                ref.peaks[i].peak_height              /= normalize_to 
+                ref.peaks[i].averaged_peak_height_sd  /= normalize_to
         
         ## TODO: is this necessary?
         ## clean-up        
@@ -501,19 +503,27 @@ class Footprinter():
                     if weight_by_inverse_height == True: 
                         ## this mode calculates deviation as percentage point, with different
                         ## weights for each peak
-                        weight = 1/ref_peak.peak_height
-                    else:
+                        weight = 1
+                    elif weight_by_inverse_height == False:
                         ## similarly weighted, the difference between the two trace functions
                         ## ~ area / integral between traces is calculated
-                        weight = 1
+                        weight = 0
+                    else:
+                        weight = weight_by_inverse_height
+                    counterweight = 1 - weight
+
+                    deviation_abs = abs(ref_peak.peak_height - trace_peak.peak_height)
+                    deviation_rel = deviation_abs / ref_peak.peak_height
+
+                    deviation = weight*deviation_rel + counterweight*deviation_abs
 
                     if trace_peak.peak_height <= ref_peak.peak_height:
                         # deviation for smaller, i.e. potentially footprinted peaks
-                        deviance_for_smaller_peaks += abs((ref_peak.peak_height - trace_peak.peak_height)*weight)
+                        deviance_for_smaller_peaks += deviation
                         num_smaller +=1
                     else:
                         # deviation for bigger, i.e. potentially hypersensitive peaks
-                        deviance_for_bigger_peaks += abs((ref_peak.peak_height - trace_peak.peak_height)*weight)
+                        deviance_for_bigger_peaks += deviation
                         num_bigger +=1
 
         weighted_deviation = (weight_smaller*deviance_for_smaller_peaks + weight_bigger*deviance_for_bigger_peaks)

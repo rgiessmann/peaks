@@ -33,14 +33,14 @@ trace_list = footprint.get_data("./input_traces.csv")
 
 _accepted_offset = 0.5
 _factor_method   = "num"
-_weight_smaller  = .5
-_weight_bigger   = .5
-_relative_mode   = False
+_weight_smaller  = 1
+_weight_bigger   = 1
+_relative_mode   = 0.9999
 _from_bp         = 0
 _to_bp           = 200
 
 ### Generate the reference trace
-ref = footprint.generate_averaged_negative_control(trace_list,accepted_offset=_accepted_offset,factor_method=_factor_method, weight_smaller=0.5, weight_bigger=0.5, relative_mode=_relative_mode, from_bp=_from_bp, to_bp=_to_bp)
+ref = footprint.generate_averaged_negative_control(trace_list,accepted_offset=_accepted_offset,factor_method=_factor_method, weight_smaller=0.5, weight_bigger=0.5, relative_mode=_relative_mode, from_bp=_from_bp, to_bp=_to_bp, normalize_to=None)
 # -------------------------------- #
 
 
@@ -81,10 +81,10 @@ for trace in trace_list:
         if getattr(peak, "cluster", 0)!=0:
             clusterlist.append(peak.cluster)
             heightlist.append(peak.peak_height)
-    print(clusterlist, heightlist)
+    # print(clusterlist, heightlist)
     bigdict.update({"cluster" : clusterlist, trace.file_name : heightlist})
     df_small=pandas.DataFrame.from_dict(bigdict)
-    print df_small
+    # print df_small
     if not df_big is None:
         df_big = df_big.merge(df_small, on="cluster", how="outer")
     else:
