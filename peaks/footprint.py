@@ -1,5 +1,6 @@
 #!/usr/bin/env python
 
+import itertools
 import logging
 import sys
 import getopt
@@ -107,16 +108,13 @@ class Footprinter():
         return storage_traces
 
     def get_data(self, config_file="input_traces.csv"):
-        """
-        Reads data from read_filelist, and returns an object containing all read
+        """Reads data from read_filelist, and returns an object containing all read
         information.
 
         This object consists of the following structure:
 
         [Trace(..., peaks = [Peak(...), Peak(...)], Trace(...)]
- print
-        See "Trace" and "Peak" to learn more about these classes. 
-        """    
+        See Trace and Peak to learn more about these classes. """   
 
         NAME_sample_id = "Sample File Name"
         NAME_sample_file = "GetFromFile"
@@ -968,9 +966,6 @@ class Footprinter():
 
 
     def generate_xdata_ydata(self,ref,trace_list,cluster):
-        """
-
-        """    
 
         xdata = []
         ydata = []    
@@ -1041,7 +1036,8 @@ class Footprinter():
         ref_pos = {:4.1f} bp
         ref_height = {:5.1f} $\pm$ {:5.1f} A.U.
         ref_quality = {:3.2f}
-        """.format(n, n_m, min_peak, max_peak, kd, std, bp, ref_height , ref_height_sd , ref_peak_quality)
+        """
+        textstr = textstr.format(n, n_m, min_peak, max_peak, kd, std, bp, ref_height , ref_height_sd , ref_peak_quality)
         textstr = "\n".join([foo.strip() for foo in textstr.splitlines()])
 
 
@@ -1139,3 +1135,29 @@ class Footprinter():
         return
 
 
+    def prune_tracepeaks_to_peaks_present_in_other_traces(self, trace, trace_list, how_many=-1):
+        cluster_list = list(self.give_all_clustered_peaks(trace, trace_list))
+
+        for trace_peak, other_traces in cluster_list:
+            if how_many <= 0:
+                how_many = len(trace_list)
+
+            if len(other_traces) >= how_many:
+                pass
+            else: 
+                trace.peaks.remove(trace_peak)
+
+        return
+
+    def make_round_comparison(self, trace_list, *args, **kwargs):
+        l = len(trace_list)
+        dev_result = numpy.ndarray((l,l))
+        for indexlist, trace_combination in zip( list(itertools.combinations_with_replacement(range(l), 2)) , list(itertools.combinations_with_replacement(trace_list, 2)) ):
+            t,u = trace_combination
+            t = copy.deepcopy(t)
+            u = copy.deepcopy(t)
+	    self.prune_tracepeaks_to_peaks_present_in_other_traces(t, [u])
+            dev = self.calculate_deviance_for_all_peaks(t, u, *args, **kwargs)
+            dev_result[indexlist] = dev
+        return dev_result
+                
