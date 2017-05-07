@@ -51,8 +51,26 @@ ref = footprint.generate_averaged_negative_control(trace_list,accepted_offset=_a
 # In[22]:
 # -------------------------------- #
 footprint.cluster_peaks(ref,trace_list,accepted_offset=_accepted_offset)
+# -------------------------------- #
 
 
+
+# -------------------------------- #
+if _factor_method   == "peak":
+    optimal_factors = footprint.determine_factor_single_peak(ref, trace_list, weight_smaller=_weight_smaller, weight_bigger=_weight_bigger, relative_mode=_relative_mode, from_bp=_from_bp, to_bp=_to_bp)
+elif _factor_method  == "num":
+    optimal_factors = footprint.determine_factor_numerically(ref, trace_list, weight_smaller=_weight_smaller, weight_bigger=_weight_bigger, relative_mode=_relative_mode, from_bp=_from_bp, to_bp=_to_bp)
+
+### Correct traces with optimal factors 
+for index, null in enumerate(trace_list):
+    footprint.correct_peaks_with_factor(trace_list[index],optimal_factors[index])
+    print("file: {:30.30} --> factor: {:4.2f}".format(trace_list[index].file_name, optimal_factors[index]))
+# -------------------------------- #
+
+
+
+
+# -------------------------------- #
 trace_list_plus = [ref]+trace_list
 
 rc = footprint.make_round_comparison( trace_list_plus, \
@@ -63,3 +81,4 @@ from_bp=_from_bp, to_bp=_to_bp)
 fn=[trace.file_name for trace in trace_list_plus]
 df = pandas.DataFrame(rc, index=fn, columns=fn)
 df.to_csv("round_comparison.csv")
+# -------------------------------- #
