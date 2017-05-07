@@ -179,7 +179,17 @@ class Footprinter():
 
         return trace_list
 
-    def generate_averaged_negative_control(self, trace_list,accepted_offset=0.5, factor_method="peak", normalize_to=1000, *args, **kwargs):
+    def generate_averaged_negative_control(self, trace_list, \
+                                           accepted_offset=0.5, \
+                                           factor_method="peak", \
+                                           normalize_to=1000, \
+                                           how_many_peaks_necessary=1, \
+                                           *args, **kwargs):
+
+        if how_many_peaks_necessary <= 0:
+            how_many_peaks_necessary = len(trace_list)
+
+
 
         ## clean up trace_list, in case it was processed already.
         trace_list_ref = copy.copy(trace_list)
@@ -196,9 +206,8 @@ class Footprinter():
         self.log.info("Found {} conc_0 traces.".format(len(conc_0_traces)))        
 
         if len(conc_0_traces) > 1:
-
             i = 0       
-
+            
             for trace in conc_0_traces:
                 self.log.debug("Screening trace {}...".format(trace.file_name))
                 for ref_peak in trace.peaks:                
@@ -224,12 +233,42 @@ class Footprinter():
                                             self.log.critical("{} : {}".format(t.file_name, peak))
                                         else:
                                             ref_peak.cluster = i
-
             num_total_clusters = i
             self.log.info("Found {} potential clusters in total.".format(num_total_clusters))
 
-            num_total_traces = float(len(conc_0_traces))
+            
+            self.log.info("Trying to find clusters which shall be rejected...")
 
+            for trace in conc_0_traces:
+                self.prune_tracepeaks_to_peaks_present_in_other_traces(trace, conc_0_traces, how_many_peaks_necessary)
+
+            storage_all_clusterids = []
+            for trace in conc_0_traces:
+                clusterids_in_this_trace = [peak.cluster for peak in trace.peaks if hasattr(peak, "cluster")]
+                storage_all_clusterids.extend(clusterids_in_this_trace)
+            storage_all_clusterids = set(storage_all_clusterids)
+
+            # reset cluster index
+            constant_shift = 100
+            convert_lookup_list = list(enumerate(storage_all_clusterids,len(storage_all_clusterids)+constant_shift))
+
+            for new_index, old_index in convert_lookup_list:
+                for trace in conc_0_traces:
+                    peaks_of_interest = [peak for peak in trace.peaks if getattr(peak, "cluster", None)==old_index]
+                    for peak_of_interest in peaks_of_interest:
+                        peak_of_interest.cluster = new_index                            
+
+            for reset_index, (new_index, old_index) in enumerate(convert_lookup_list, 1):
+                for trace in conc_0_traces:
+                    peaks_of_interest = [peak for peak in trace.peaks if getattr(peak, "cluster", None)==new_index]
+                    for peak_of_interest in peaks_of_interest:
+                        peak_of_interest.cluster = reset_index                            
+                 
+
+            num_total_clusters = len(storage_all_clusterids)
+            self.log.info("... left with {} clusters.".format(num_total_clusters))
+
+            num_total_traces = float(len(conc_0_traces))
 
             ## gradually fit optimal heights
             for x in range(5):
@@ -424,7 +463,7 @@ class Footprinter():
         return
 
 
-    def cluster_peaks(self, ref,trace_list,accepted_offset=0.25):
+    def cluster_peaks(self, ref, trace_list,accepted_offset=0.25):
         """
         Compiles peaks from trace_list to clusters of peaks which match to one 
         particular peak in ref. This function directly modifies the objects given
@@ -455,7 +494,7 @@ class Footprinter():
         return 
 
 
-    def calculate_deviance_for_all_peaks(self, ref, trace_list, weight_smaller=1,weight_bigger=1, weight_by_inverse_height=False, from_bp=20, to_bp=170):
+    def calculate_deviance_for_all_peaks(self, ref, trace_list, weight_smaller=1,weight_bigger=1, weight_by_inverse_height=False, from_bp=float("-inf"), to_bp=float("+inf")):
         '''
         Calculates the area between peaks that were identified as clustered in ref, 
         compared to trace. Allows for comparison of two traces only.
@@ -1151,11 +1190,12 @@ class Footprinter():
 
     def make_round_comparison(self, trace_list, *args, **kwargs):
         l = len(trace_list)
-        dev_result = numpy.ndarray((l,l))
-        for indexlist, trace_combination in zip( list(itertools.combinations_with_replacement(range(l), 2)) , list(itertools.combinations_with_replacement(trace_list, 2)) ):
+        dev_result = numpy.ndarray((l,l))*numpy.nan
+        for indexlist, trace_combination in zip( list(itertools.combinations_with_replacement(range(l), 2)) , \
+                                                 list(itertools.combinations_with_replacement(trace_list, 2)) ):
             t,u = trace_combination
             t = copy.deepcopy(t)
-            u = copy.deepcopy(t)
+            u = copy.deepcopy(u)
 	    self.prune_tracepeaks_to_peaks_present_in_other_traces(t, [u])
             dev = self.calculate_deviance_for_all_peaks(t, u, *args, **kwargs)
             dev_result[indexlist] = dev
