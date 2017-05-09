@@ -853,6 +853,8 @@ class Footprinter():
         """
 
         for peak in trace.peaks:
+            if not hasattr(peak, "peak_height_original"):
+                peak.peak_height_original = peak.peak_height
             peak.peak_height = peak.peak_height_original * factor
 
         return
@@ -1202,16 +1204,16 @@ class Footprinter():
     def make_round_comparison(self, trace_list, refit=False, *args, **kwargs):
         l = len(trace_list)
         dev_result = numpy.ndarray((l,l))*numpy.nan
-        for indexlist, trace_combination in zip( list(itertools.combinations_with_replacement(range(l), 2)) , \
-                                                 list(itertools.combinations_with_replacement(trace_list, 2)) ):
+        for indexlist, trace_combination in zip( list(itertools.combinations(range(l), 2)) , \
+                                                 list(itertools.combinations(trace_list, 2)) ):
             t,u = trace_combination
             t = copy.deepcopy(t)
             u = copy.deepcopy(u)
             self.prune_tracepeaks_to_peaks_present_in_other_traces(u, [t])
             if refit == True:
-                self.log.debug("Refitting trace {} to {}".format(u.filename, t.filename)
+                self.log.debug("Refitting trace {} to {}".format(u.file_name, t.file_name))
                 optfactor = self.determine_factor_numerically(t, [u], *args, **kwargs)
-                self.log.debug("Optimal factor: {}".optfactor[0])
+                self.log.debug("Optimal factor: {}".format(optfactor[0]))
                 self.correct_peaks_with_factor(t, optfactor[0])
             dev = self.calculate_deviance_for_all_peaks(t, u, *args, **kwargs)
             dev_result[indexlist] = dev
