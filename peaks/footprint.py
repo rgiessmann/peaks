@@ -42,7 +42,7 @@ class Footprinter():
     def __init__(self):
         ## turn on logging
         logging.basicConfig(level=logging.DEBUG)
-        self.log = logging
+        self.log = logging.getLogger(__name__)
         return
     
     def main(self, argv=""):
@@ -1204,8 +1204,8 @@ class Footprinter():
     def make_round_comparison(self, trace_list, refit=False, *args, **kwargs):
         l = len(trace_list)
         dev_result = numpy.ndarray((l,l))*numpy.nan
-        for indexlist, trace_combination in zip( list(itertools.combinations(range(l), 2)) , \
-                                                 list(itertools.combinations(trace_list, 2)) ):
+        for indexlist, trace_combination in zip( list(itertools.product(range(l), repeat=2)) , \
+                                                 list(itertools.product(trace_list, repeat=2)) ):
             t,u = trace_combination
             t = copy.deepcopy(t)
             u = copy.deepcopy(u)
@@ -1214,7 +1214,7 @@ class Footprinter():
                 self.log.debug("Refitting trace {} to {}".format(u.file_name, t.file_name))
                 optfactor = self.determine_factor_numerically(t, [u], *args, **kwargs)
                 self.log.debug("Optimal factor: {}".format(optfactor[0]))
-                self.correct_peaks_with_factor(t, optfactor[0])
+                self.correct_peaks_with_factor(u, optfactor[0])
             dev = self.calculate_deviance_for_all_peaks(t, u, *args, **kwargs)
             dev_result[indexlist] = dev
         return dev_result
