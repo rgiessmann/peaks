@@ -974,6 +974,12 @@ class Footprinter():
 
         for ref_peak,trace_peaks in self.give_all_clustered_peaks(ref,trace_list):
 
+            if ref_peak==[] and trace_peaks==[]:
+                self.log.critical("Got empty peak list for the upcoming cluster. Can't do that, sorry! :(")
+                continue
+            else:
+                self.log.debug("Evaluating cluster {}...".format(ref_peak.cluster))
+
             xdata = []
             ydata = []
 
