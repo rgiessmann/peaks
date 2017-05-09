@@ -1196,7 +1196,7 @@ class Footprinter():
             t,u = trace_combination
             t = copy.deepcopy(t)
             u = copy.deepcopy(u)
-	    self.prune_tracepeaks_to_peaks_present_in_other_traces(t, [u])
+            self.prune_tracepeaks_to_peaks_present_in_other_traces(t, [u])
             dev = self.calculate_deviance_for_all_peaks(t, u, *args, **kwargs)
             dev_result[indexlist] = dev
         return dev_result
