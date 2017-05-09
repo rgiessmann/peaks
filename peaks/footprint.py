@@ -240,7 +240,7 @@ class Footprinter():
             self.log.info("Trying to find clusters which shall be rejected...")
 
             for trace in conc_0_traces:
-                self.prune_tracepeaks_to_peaks_present_in_other_traces(trace, conc_0_traces, how_many_peaks_necessary)
+                self.prune_tracepeaks_to_peaks_present_in_other_traces(trace, conc_0_traces, how_many_peaks_necessary-1)
 
             storage_all_clusterids = []
             for trace in conc_0_traces:
@@ -979,6 +979,7 @@ class Footprinter():
                 continue
             else:
                 self.log.debug("Evaluating cluster {}...".format(ref_peak.cluster))
+                self.log.debug("DEBUG DETAIL: {}".format([ref_peak,trace_peaks]))
 
             xdata = []
             ydata = []
@@ -1208,7 +1209,10 @@ class Footprinter():
             u = copy.deepcopy(u)
             self.prune_tracepeaks_to_peaks_present_in_other_traces(u, [t])
             if refit == True:
-                self.determine_factor_numerically(t, [u], *args, **kwargs)
+                self.log.debug("Refitting trace {} to {}".format(u.filename, t.filename)
+                optfactor = self.determine_factor_numerically(t, [u], *args, **kwargs)
+                self.log.debug("Optimal factor: {}".optfactor[0])
+                self.correct_peaks_with_factor(t, optfactor[0])
             dev = self.calculate_deviance_for_all_peaks(t, u, *args, **kwargs)
             dev_result[indexlist] = dev
         return dev_result
