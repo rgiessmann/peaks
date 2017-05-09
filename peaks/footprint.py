@@ -494,7 +494,7 @@ class Footprinter():
         return 
 
 
-    def calculate_deviance_for_all_peaks(self, ref, trace_list, weight_smaller=1,weight_bigger=1, weight_by_inverse_height=False, from_bp=float("-inf"), to_bp=float("+inf")):
+    def calculate_deviance_for_all_peaks(self, ref, trace_list, weight_smaller=1,weight_bigger=1, relative_mode=False, from_bp=float("-inf"), to_bp=float("+inf")):
         '''
         Calculates the area between peaks that were identified as clustered in ref, 
         compared to trace. Allows for comparison of two traces only.
@@ -511,6 +511,8 @@ class Footprinter():
 
         ## TODO: calculate deviance for trace_list --> saves computing time
         '''
+
+        weight_by_inverse_height = relative_mode
 
         warning_not_all_peaks_match = False
         warning_trace_range = False
@@ -603,7 +605,7 @@ class Footprinter():
                 yield (ref_peak[0],trace_peaks)
 
 
-    def determine_factor_numerically(self, ref, trace_list, weight_smaller=1, weight_bigger=1, relative_mode=False, from_bp=20, to_bp=170):
+    def determine_factor_numerically(self, ref, trace_list, weight_smaller=1, weight_bigger=1, relative_mode=False, from_bp=float("-inf"), to_bp=float("+inf")):
         """
         Determines the optimal factor for trace, when compared to ref. This function
         minimizes the deviation as calculated by calculate_deviance_for_all_peaks()
@@ -666,7 +668,7 @@ class Footprinter():
 
         return optimal_factors
 
-    def check_which_peaks_to_optimize(self, ref, trace_list, weight_smaller=1, weight_bigger=1, relative_mode=False, from_bp=20, to_bp=170):
+    def check_which_peaks_to_optimize(self, ref, trace_list, weight_smaller=1, weight_bigger=1, relative_mode=False, from_bp=float("-inf"), to_bp=float("+inf")):
         """
         
         """
@@ -728,7 +730,7 @@ class Footprinter():
         return df
                 
                         
-    def check_which_trace_to_eliminate(self, ref, trace_list, weight_smaller=1, weight_bigger=1, relative_mode=False, from_bp=20, to_bp=170):
+    def check_which_trace_to_eliminate(self, ref, trace_list, weight_smaller=1, weight_bigger=1, relative_mode=False, from_bp=float("-inf"), to_bp=float("+inf")):
         which_traces_are_the_worst = numpy.asarray([0 for i in trace_list])
         
         for ref_peak, trace_peaks in self.give_all_clustered_peaks(ref,trace_list):
@@ -998,7 +1000,9 @@ class Footprinter():
             
             ## save results...
             ## TODO: optimize this form.
-            KD_matrix.append(["cluster "+str(ref_peak.cluster), _kd, _err, len(ydata), float(len(ydata))/float(len(trace_list))])
+            appendix = ["cluster "+str(ref_peak.cluster), _kd, _err, len(ydata), float(len(ydata))/float(len(trace_list))]
+            self.log.debug(appendix)
+            KD_matrix.append(appendix)
 
 
         return KD_matrix
@@ -1188,7 +1192,7 @@ class Footprinter():
 
         return
 
-    def make_round_comparison(self, trace_list, *args, **kwargs):
+    def make_round_comparison(self, trace_list, refit=False, *args, **kwargs):
         l = len(trace_list)
         dev_result = numpy.ndarray((l,l))*numpy.nan
         for indexlist, trace_combination in zip( list(itertools.combinations_with_replacement(range(l), 2)) , \
@@ -1196,7 +1200,9 @@ class Footprinter():
             t,u = trace_combination
             t = copy.deepcopy(t)
             u = copy.deepcopy(u)
-            self.prune_tracepeaks_to_peaks_present_in_other_traces(t, [u])
+            self.prune_tracepeaks_to_peaks_present_in_other_traces(u, [t])
+            if refit == True:
+                self.determine_factor_numerically(t, [u], *args, **kwargs)
             dev = self.calculate_deviance_for_all_peaks(t, u, *args, **kwargs)
             dev_result[indexlist] = dev
         return dev_result
