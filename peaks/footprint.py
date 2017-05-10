@@ -186,13 +186,8 @@ class Footprinter():
                                            how_many_peaks_necessary=1, \
                                            *args, **kwargs):
 
-        if how_many_peaks_necessary <= 0:
-            how_many_peaks_necessary = len(trace_list)
-
-
-
         ## clean up trace_list, in case it was processed already.
-        trace_list_ref = copy.copy(trace_list)
+        trace_list_ref = copy.deepcopy(trace_list)
         for t in trace_list_ref:
             for p in t.peaks:
                 if "cluster" in vars(p):
@@ -240,7 +235,9 @@ class Footprinter():
             self.log.info("Trying to find clusters which shall be rejected...")
 
             for trace in conc_0_traces:
-                self.prune_tracepeaks_to_peaks_present_in_other_traces(trace, conc_0_traces, how_many_peaks_necessary-1)
+                index = conc_0_traces.index(trace)
+                slice_conc_0_traces = conc_0_traces[:index] + conc_0_traces[index+1:]
+                self.prune_tracepeaks_to_peaks_present_in_other_traces(trace, slice_conc_0_traces, how_many_peaks_necessary)
 
             storage_all_clusterids = []
             for trace in conc_0_traces:
@@ -306,10 +303,10 @@ class Footprinter():
                     
                 ## normalize to largest peak
         
-                normalize_to  = max([peak.peak_height for peak in ref.peaks])
-                normalize_to /= 1000.0
-                for i in range(len(ref.peaks)):
-                    ref.peaks[i].peak_height              /= normalize_to 
+                #normalize_to  = max([peak.peak_height for peak in ref.peaks])
+                #normalize_to /= 1000.0
+                #for i in range(len(ref.peaks)):
+                #    ref.peaks[i].peak_height              /= normalize_to 
 
 
             ref = Trace("averaged_negative_control", "B", 0, 0, [])        
@@ -365,17 +362,9 @@ class Footprinter():
         else:
             self.log.critical("The provided trace_list contains no negative control traces with Ltot = 0.")
 
-            
         ## normalize to largest peak
-        if normalize_to is None:
-            pass
-        else:
-            normalize_to  = max([peak.peak_height for peak in ref.peaks])
-            normalize_to /= 1000.0
-            for i in range(len(ref.peaks)):
-                ref.peaks[i].peak_height              /= normalize_to 
-                ref.peaks[i].averaged_peak_height_sd  /= normalize_to
-        
+        self.normalize_trace(ref, normalize_to)
+    
         ## TODO: is this necessary?
         ## clean-up        
         del(trace_list_ref)
@@ -383,6 +372,43 @@ class Footprinter():
         ref.peaks = sorted(ref.peaks, key=lambda k: k.size_bp)
 
         return ref
+
+    def normalize_trace(self, trace, normalize_to=1000):
+        ## normalize to largest peak
+        if normalize_to is None:
+            pass
+        else:
+            normalize_to  = max([peak.peak_height for peak in trace.peaks])
+            normalize_to /= 1000.0
+            for i in range(len(trace.peaks)):
+                if hasattr(trace.peaks[i], "peak_height"):
+                    trace.peaks[i].peak_height              /= normalize_to 
+                if hasattr(trace.peaks[i], "averaged_peak_height_sd"):
+                    trace.peaks[i].averaged_peak_height_sd  /= normalize_to
+        return
+
+    def fit_all_traces_to_one(self, ref, trace_list, factor_method="num", *args, **kwargs):
+
+        if factor_method   == "peak":
+            optimal_factors = self.determine_factor_single_peak(ref, trace_list, *args, **kwargs)
+        elif factor_method  == "num":
+            optimal_factors = self.determine_factor_numerically(ref, trace_list, *args, **kwargs)
+
+        self.log.debug(optimal_factors)
+        self.correct_all_traces_with_factors(trace_list, optimal_factors)
+
+        return
+
+
+    def correct_all_traces_with_factors(self, trace_list, factor_list):
+        # Correct traces with optimal factors
+        optimal_factors = factor_list
+
+        for index in range(len(trace_list)):
+            self.correct_peaks_with_factor(trace_list[index],optimal_factors[index])
+            self.log.debug("file: {:30.30} --> factor: {:4.2f}".format(trace_list[index].file_name, optimal_factors[index]))
+
+        return
 
 
     def plot_height_size_overview_averaged_negative_control(self, ref, *args, **kwargs):
@@ -640,8 +666,8 @@ class Footprinter():
                 rmsd_new = self.calculate_deviance_for_all_peaks(ref,trace,weight_smaller,weight_bigger,relative_mode, from_bp, to_bp)
                 return rmsd_new
 
-            x0 = [0.]
-            min_result = scipy.optimize.minimize(cost_function, x0, method='nelder-mead') #, options={'disp': True})
+            x0 = [1.]
+            min_result = scipy.optimize.minimize(cost_function, x0) #, method='nelder-mead', options={'disp': True})
             optimal_factor = min_result.x[0]
 
             self.log.info("found optimal: deviation {:8f} --> factor {:4.2f} ".format(cost_function(optimal_factor), optimal_factor))
@@ -659,7 +685,7 @@ class Footprinter():
         self.log.info("found optimal: deviation {:8f} --> factors {!s} ".format(rmsd_new, optimal_factors))
 
 
-        ## restore all peak heights to original height
+        ## restore all peak heights to previous height
         for trace in trace_list:
             for peak in trace.peaks:
                 peak.peak_height = peak.peak_height_tmp
@@ -1190,10 +1216,10 @@ class Footprinter():
     def prune_tracepeaks_to_peaks_present_in_other_traces(self, trace, trace_list, how_many=-1):
         cluster_list = list(self.give_all_clustered_peaks(trace, trace_list))
 
-        for trace_peak, other_traces in cluster_list:
-            if how_many <= 0:
-                how_many = len(trace_list)
+        if how_many <= 0:
+            how_many = len(trace_list)
 
+        for trace_peak, other_traces in cluster_list:
             if len(other_traces) >= how_many:
                 pass
             else: 

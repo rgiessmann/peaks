@@ -7,6 +7,21 @@ get_ipython().magic(u'matplotlib')
 # -------------------------------- #
 
 
+## SELECT YOUR LOGGING LEVEL ##
+#_logging_level = "DEBUG"
+#_logging_level = "INFO"
+#_logging_level = "WARNING"
+
+
+_logging_level = "CRITICAL"
+## ------------------------  ##
+import logging
+_level = eval("logging."+_logging_level)
+logging.basicConfig(level=_level)
+
+
+
+
 # In[2]:
 # -------------------------------- #
 ## import code for data processing

@@ -7,6 +7,22 @@ get_ipython().magic(u'matplotlib')
 # -------------------------------- #
 
 
+
+
+## SELECT YOUR LOGGING LEVEL ##
+_logging_level = "DEBUG"
+#_logging_level = "INFO"
+#_logging_level = "WARNING"
+
+
+#_logging_level = "CRITICAL"
+## ------------------------  ##
+import logging
+_level = eval("logging."+_logging_level)
+logging.basicConfig(level=_level)
+
+
+
 # In[2]:
 # -------------------------------- #
 ## import code for data processing
@@ -36,10 +52,10 @@ _factor_method   = "num"
 _weight_smaller  = .5
 _weight_bigger   = .5
 _relative_mode   = True
-_from_bp         = 0
-_to_bp           = 200
+_from_bp         = float("-inf")
+_to_bp           = float("+inf")
 _normalize_to    = 1000
-_how_many_peaks_necessary = 2
+_how_many_peaks_necessary = 1
 
 ### Generate the reference trace
 ref = footprint.generate_averaged_negative_control(trace_list,accepted_offset=_accepted_offset,factor_method=_factor_method, weight_smaller=0.5, weight_bigger=0.5, relative_mode=_relative_mode, from_bp=_from_bp, to_bp=_to_bp, normalize_to=_normalize_to, how_many_peaks_necessary=_how_many_peaks_necessary)
