@@ -363,7 +363,7 @@ class Footprinter():
             self.log.critical("The provided trace_list contains no negative control traces with Ltot = 0.")
 
         ## normalize to largest peak
-        self.normalize_trace(ref, normalize_to)
+        self.normalize_trace_to_maxpeak(ref, normalize_to)
     
         ## TODO: is this necessary?
         ## clean-up        
@@ -373,13 +373,25 @@ class Footprinter():
 
         return ref
 
-    def normalize_trace(self, trace, normalize_to=1000):
+    def normalize_trace_to_maxpeak(self, trace, normalize_to=1000):
         ## normalize to largest peak
         if normalize_to is None:
             pass
         else:
-            normalize_to  = max([peak.peak_height for peak in trace.peaks])
-            normalize_to /= 1000.0
+            normalize_to  = max([peak.peak_height for peak in trace.peaks]) / normalize_to
+            for i in range(len(trace.peaks)):
+                if hasattr(trace.peaks[i], "peak_height"):
+                    trace.peaks[i].peak_height              /= normalize_to 
+                if hasattr(trace.peaks[i], "averaged_peak_height_sd"):
+                    trace.peaks[i].averaged_peak_height_sd  /= normalize_to
+        return
+
+    def normalize_trace_to_sumpeak(self, trace, normalize_to=1000):
+        ## normalize to largest peak
+        if normalize_to is None:
+            pass
+        else:
+            normalize_to  = sum([peak.peak_height for peak in trace.peaks]) / normalize_to
             for i in range(len(trace.peaks)):
                 if hasattr(trace.peaks[i], "peak_height"):
                     trace.peaks[i].peak_height              /= normalize_to 
@@ -1236,9 +1248,12 @@ class Footprinter():
             t = copy.deepcopy(t)
             u = copy.deepcopy(u)
             self.prune_tracepeaks_to_peaks_present_in_other_traces(u, [t])
-            if refit == True:
+            if refit != False:
                 self.log.debug("Refitting trace {} to {}".format(u.file_name, t.file_name))
-                optfactor = self.determine_factor_numerically(t, [u], *args, **kwargs)
+                if refit == True or refit == "num":
+                    optfactor = self.determine_factor_numerically(t, [u], *args, **kwargs)
+                elif refit == "peak":
+                    optfactor = self.determine_factor_single_peak(t, [u], *args, **kwargs)
                 self.log.debug("Optimal factor: {}".format(optfactor[0]))
                 self.correct_peaks_with_factor(u, optfactor[0])
             dev = self.calculate_deviance_for_all_peaks(t, u, *args, **kwargs)

@@ -51,7 +51,7 @@ _accepted_offset = 0.3
 _factor_method   = "num"
 _weight_smaller  = 1
 _weight_bigger   = 1
-_relative_mode   = True
+_relative_mode   = False
 _from_bp         = float("-inf")
 _to_bp           = float("+inf")
 _normalize_to	 = None
@@ -74,30 +74,15 @@ footprint.cluster_peaks(ref,trace_list,accepted_offset=_accepted_offset)
 for trace in trace_list:
     footprint.prune_tracepeaks_to_peaks_present_in_other_traces(trace, trace_list,\
                                          how_many=_how_many_peaks_necessary)
-
 # -------------------------------- #
 
-
-
-
-
-# -------------------------------- #
-# if _factor_method   == "peak":
-#	optimal_factors = footprint.determine_factor_single_peak(ref, trace_list, weight_smaller=_weight_smaller, weight_bigger=_weight_bigger, relative_mode=_relative_mode, from_bp=_from_bp, to_bp=_to_bp)
-# elif _factor_method  == "num":
-#	optimal_factors = footprint.determine_factor_numerically(ref, trace_list, weight_smaller=_weight_smaller, weight_bigger=_weight_bigger, relative_mode=_relative_mode, from_bp=_from_bp, to_bp=_to_bp)
-
-### Correct traces with optimal factors 
-# for index, null in enumerate(trace_list):
-#	footprint.correct_peaks_with_factor(trace_list[index],optimal_factors[index])
-#	print("file: {:30.30} --> factor: {:4.2f}".format(trace_list[index].file_name, optimal_factors[index]))
-# -------------------------------- #
-
-
-
-
-# -------------------------------- #
 trace_list_plus = [ref]+trace_list
+
+
+# -------------------------------- #
+for trace in trace_list_plus:
+    footprint.correct_peaks_with_factor(trace, 1)
+    pass
 
 rc = footprint.make_round_comparison( trace_list_plus, \
        refit=False, \
@@ -108,5 +93,46 @@ logger.info(rc)
 
 fn=[trace.file_name for trace in trace_list_plus]
 df = pandas.DataFrame(rc, index=fn, columns=fn)
-df.to_csv("round_comparison.csv")
+df.to_csv("round_comparison.native.csv")
+# -------------------------------- #
+
+
+
+
+# -------------------------------- #
+for trace in trace_list_plus:
+    footprint.correct_peaks_with_factor(trace, 1)
+    footprint.normalize_trace_to_sumpeak(trace, normalize_to=1000)
+
+rc = footprint.make_round_comparison( trace_list_plus, \
+       refit=False, \
+       weight_smaller=_weight_smaller, weight_bigger=_weight_bigger, \
+       relative_mode=_relative_mode, \
+       from_bp=_from_bp, to_bp=_to_bp)
+logger.info(rc)
+
+fn=[trace.file_name for trace in trace_list_plus]
+df = pandas.DataFrame(rc, index=fn, columns=fn)
+df.to_csv("round_comparison.sum-normalized-to-1000.csv")
+# -------------------------------- #
+
+
+
+
+# -------------------------------- #
+for trace in trace_list_plus:
+    footprint.correct_peaks_with_factor(trace, 1)
+footprint.normalize_trace_to_sumpeak(ref, normalize_to=1000)
+footprint.fit_all_traces_to_one(ref, trace_list, factor_method="num",  weight_smaller=_weight_smaller, weight_bigger=_weight_bigger, relative_mode=_relative_mode, from_bp=_from_bp, to_bp=_to_bp)
+
+rc = footprint.make_round_comparison( trace_list_plus, \
+       refit=False, \
+       weight_smaller=_weight_smaller, weight_bigger=_weight_bigger, \
+       relative_mode=_relative_mode, \
+       from_bp=_from_bp, to_bp=_to_bp)
+logger.info(rc)
+
+fn=[trace.file_name for trace in trace_list_plus]
+df = pandas.DataFrame(rc, index=fn, columns=fn)
+df.to_csv("round_comparison.fitted-via-num-to-ref.csv")
 # -------------------------------- #
