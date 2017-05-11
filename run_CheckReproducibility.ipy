@@ -1,10 +1,25 @@
 # coding: utf-8
 
+import logging
+
 # In[1]:
 # -------------------------------- #
 ### set plotting options
 #get_ipython().magic(u'matplotlib Agg')
 # -------------------------------- #
+
+## SELECT YOUR LOGGING LEVEL ##
+_logging_level = "DEBUG"
+#_logging_level = "INFO"
+#_logging_level = "WARNING"
+
+
+#_logging_level = "CRITICAL"
+## ------------------------  ##
+import logging
+_level = eval("logging."+_logging_level)
+logging.basicConfig(level=_level)
+logger = logging.getLogger(__name__)
 
 
 # In[2]:
@@ -31,16 +46,19 @@ trace_list = footprint.get_data("./input_traces.csv")
 ## relative_mode: if "True" determine the importance of misfit peaks due to their relative size compared to the reference peak, if "False" consider absolute difference (in AU)
 ## from_bp/ to_bp: peaks in this interval of sizes (=bp) shall be considered for analysis.
 
-_accepted_offset = 0.5
+
+_accepted_offset = 0.3
 _factor_method   = "num"
 _weight_smaller  = 1
 _weight_bigger   = 1
-_relative_mode   = 0.9999
-_from_bp         = 0
-_to_bp           = 200
+_relative_mode   = False
+_from_bp         = float("-inf")
+_to_bp           = float("+inf")
+_normalize_to    = None
+_how_many_peaks_necessary = -1
 
 ### Generate the reference trace
-ref = footprint.generate_averaged_negative_control(trace_list,accepted_offset=_accepted_offset,factor_method=_factor_method, weight_smaller=0.5, weight_bigger=0.5, relative_mode=_relative_mode, from_bp=_from_bp, to_bp=_to_bp, normalize_to=None)
+ref = footprint.generate_averaged_negative_control(trace_list,accepted_offset=_accepted_offset,factor_method=_factor_method, weight_smaller=0.5, weight_bigger=0.5, relative_mode=_relative_mode, from_bp=_from_bp, to_bp=_to_bp, normalize_to=None, how_many_peaks_necessary=_how_many_peaks_necessary)
 # -------------------------------- #
 
 
@@ -48,32 +66,31 @@ ref = footprint.generate_averaged_negative_control(trace_list,accepted_offset=_a
 # -------------------------------- #
 footprint.cluster_peaks(ref,trace_list,accepted_offset=_accepted_offset)
 
-df = footprint.check_which_peaks_to_optimize(ref, trace_list, weight_smaller=_weight_smaller, weight_bigger=_weight_bigger, relative_mode=_relative_mode, from_bp=_from_bp, to_bp=_to_bp)
-df.to_csv("check_peaks.csv")
+#df = footprint.check_which_peaks_to_optimize(ref, trace_list, weight_smaller=_weight_smaller, weight_bigger=_weight_bigger, relative_mode=_relative_mode, from_bp=_from_bp, to_bp=_to_bp)
+#df.to_csv("check_peaks.csv")
 
+# In[22]:
+# -------------------------------- #
+for trace in trace_list:
+    footprint.prune_tracepeaks_to_peaks_present_in_other_traces(trace, trace_list,\
+                                         how_many=_how_many_peaks_necessary)
+# -------------------------------- #
 
 
 
 
 # In[30]:
 # -------------------------------- #
-### Determine factor for height adjustment by finding an optimal invariant peak
-
-#_factor_method   = "peak"
-#optimal_factors = footprint.determine_factor_single_peak(ref, trace_list, weight_smaller=_weight_smaller, weight_bigger=_weight_bigger, relative_mode=_relative_mode, from_bp=_from_bp, to_bp=_to_bp)
-
-#_factor_method   = "num"
-optimal_factors = footprint.determine_factor_numerically(ref, trace_list, weight_smaller=_weight_smaller, weight_bigger=_weight_bigger, relative_mode=_relative_mode, from_bp=_from_bp, to_bp=_to_bp)
-
-### Correct traces with optimal factors 
-for index, null in enumerate(trace_list):
-    footprint.correct_peaks_with_factor(trace_list[index],optimal_factors[index])
-    print("file: {:30.30} --> factor: {:4.2f}".format(trace_list[index].file_name, optimal_factors[index]))
+#footprint.fit_all_traces_to_one(ref, trace_list, factor_method="num",  weight_smaller=_weight_smaller, weight_bigger=_weight_bigger, relative_mode=_relative_mode, from_bp=_from_bp, to_bp=_to_bp)
 # -------------------------------- #
 
-import pandas 
-df_big=None
-for trace in trace_list:
+trace_list_plus = [ref] + trace_list
+
+footprint.tracelist_to_dataframe(trace_list_plus, "check-reproducibility-peakheights.csv")
+
+exit()
+
+for trace in trace_list_plus:
     bigdict={} 
     clusterlist=[]
     heightlist=[]
@@ -89,4 +106,19 @@ for trace in trace_list:
         df_big = df_big.merge(df_small, on="cluster", how="outer")
     else:
         df_big=df_small
+
+
+import itertools
+
+for indexlist, trace_combination in zip( list(itertools.combinations(range(len(trace_list)), r=2)) , \
+                                                 list(itertools.combinations(trace_list, r=2)) ):
+
+    t,u=trace_combination
+    i1,i2=indexlist
+    tf = t.file_name
+    uf = u.file_name
+    df_big["({}-{})".format(i1,i2)] = df_big[tf] - df_big[uf]
+    df_big["({}-{})/{}".format(i1,i2,i1)] = ( df_big[tf] - df_big[uf] ) / df_big[tf]
+
+
 df_big.to_csv("check-reproducibility-peakheights.csv")

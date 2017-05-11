@@ -1260,3 +1260,33 @@ class Footprinter():
             dev_result[indexlist] = dev
         return dev_result
                 
+    def tracelist_to_dataframe(self, trace_list, filename="dataframe.csv"):
+        df_big=None
+        for index, trace in enumerate(trace_list):
+            bigdict={}
+            clusterlist=[]
+            heightlist=[]
+            for peak in trace.peaks:
+                if getattr(peak, "cluster", 0)!=0:
+                    clusterlist.append(peak.cluster)
+                    heightlist.append(peak.peak_height)
+            bigdict.update({"cluster" : clusterlist, trace.file_name+" ({})".format(index) : heightlist})
+            df_small=pandas.DataFrame.from_dict(bigdict)
+            if not df_big is None:
+                df_big = df_big.merge(df_small, on="cluster", how="outer")
+            else:
+                df_big=df_small
+        
+        ## calculate differences
+        for indexlist, trace_combination in zip( list(itertools.combinations(range(len(trace_list)), r=2)) , \
+                                                         list(itertools.combinations(trace_list, r=2)) ):
+            t,u=trace_combination
+            i1,i2=indexlist
+            tf = t.file_name+" ({})".format(i1)
+            uf = u.file_name+" ({})".format(i2)
+            df_big["({}-{})".format(i1,i2)] = df_big[tf] - df_big[uf]
+            df_big["({}-{})/{}".format(i1,i2,i1)] = ( df_big[tf] - df_big[uf] ) / df_big[tf]
+        
+        
+        df_big.to_csv(filename)
+        return
