@@ -81,44 +81,50 @@ for trace in trace_list:
 
 # In[30]:
 # -------------------------------- #
-#footprint.fit_all_traces_to_one(ref, trace_list, factor_method="num",  weight_smaller=_weight_smaller, weight_bigger=_weight_bigger, relative_mode=_relative_mode, from_bp=_from_bp, to_bp=_to_bp)
+footprint.fit_all_traces_to_one(ref, trace_list, factor_method="num",  weight_smaller=_weight_smaller, weight_bigger=_weight_bigger, relative_mode=_relative_mode, from_bp=_from_bp, to_bp=_to_bp)
 # -------------------------------- #
 
+
+
+# -------------------------------- #
 trace_list_plus = [ref] + trace_list
-
-footprint.tracelist_to_dataframe(trace_list_plus, "check-reproducibility-peakheights.csv")
-
-exit()
-
-for trace in trace_list_plus:
-    bigdict={} 
-    clusterlist=[]
-    heightlist=[]
-    for peak in trace.peaks:
-        if getattr(peak, "cluster", 0)!=0:
-            clusterlist.append(peak.cluster)
-            heightlist.append(peak.peak_height)
-    # print(clusterlist, heightlist)
-    bigdict.update({"cluster" : clusterlist, trace.file_name : heightlist})
-    df_small=pandas.DataFrame.from_dict(bigdict)
-    # print df_small
-    if not df_big is None:
-        df_big = df_big.merge(df_small, on="cluster", how="outer")
-    else:
-        df_big=df_small
+footprint.tracelist_to_csv(trace_list_plus, "check-reproducibility-peakheights.csv")
+# -------------------------------- #
 
 
+
+# -------------------------------- #
+import pandas
 import itertools
 
-for indexlist, trace_combination in zip( list(itertools.combinations(range(len(trace_list)), r=2)) , \
-                                                 list(itertools.combinations(trace_list, r=2)) ):
+df = pandas.read_csv("check-reproducibility-peakheights.csv")
 
-    t,u=trace_combination
-    i1,i2=indexlist
-    tf = t.file_name
-    uf = u.file_name
-    df_big["({}-{})".format(i1,i2)] = df_big[tf] - df_big[uf]
-    df_big["({}-{})/{}".format(i1,i2,i1)] = ( df_big[tf] - df_big[uf] ) / df_big[tf]
+cols_rel = [col for col in df.columns if ")/" in col]
+cols_abs = [col for col in df.columns if not "/" in col and "(" in col and "-" in col and not ".fsa" in col]
+cols_fsa = [col for col in df.columns if ".fsa" in col]
+
+logger.info(cols_fsa)
+
+corr = df[cols_fsa].corr()
+logger.info(corr)
+corr.to_csv("check-reproducibility-correlations.csv")
+
+result_storage = {}
+for _1, _2 in itertools.combinations(cols_fsa, r=2):
+    res = pandas.ols(x=df[_1],y=df[_2])
+    object = res.summary_as_matrix
+    object.loc["r2"] = res.r2
+    object.loc["r2_adj"] = res.r2_adj
+    result_storage.update( { (_1, _2) : object } )
+    
+panel = pandas.Panel(result_storage)
+panel.to_frame().to_csv("check-reproducibility-regressions.csv")
+
+#df[cols_fsa].plot(marker="o")
+#df[cols_abs].plot(marker="o")
+#df[cols_rel].plot(marker="o")
+#df[cols_fsa].rank()
+#df[cols_fsa].rank().corr()
+# -------------------------------- #
 
 
-df_big.to_csv("check-reproducibility-peakheights.csv")

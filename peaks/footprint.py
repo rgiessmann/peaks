@@ -457,7 +457,7 @@ class Footprinter():
 
         plt.show()
 
-        return
+        return fig
 
 
     def plot_height_size_clustering_success_averaged_negative_control(self, ref, *args, **kwargs):
@@ -498,7 +498,7 @@ class Footprinter():
 
         plt.show()
 
-        return
+        return fig
 
 
     def cluster_peaks(self, ref, trace_list,accepted_offset=0.25):
@@ -1080,7 +1080,7 @@ class Footprinter():
         plt.title("Cluster " + str(cluster))
         plt.ylabel('Fractional Occupancy', fontsize = 16)
         plt.xlabel('Free Ligand Concentration', fontsize = 16)
-        plt.ylim([-0.1, 1.1])
+        plt.ylim([-1.1, 1.1])
         plt.xlim([-1, 10.1])
 
         ## plot points
@@ -1237,6 +1237,12 @@ class Footprinter():
             else: 
                 trace.peaks.remove(trace_peak)
 
+        ## hunt for cluster==0 peaks
+        for trace in trace_list:
+            for peak in trace.peaks:
+                if peak.cluster == 0:
+                    trace.peaks.remove(peak)
+                
         return
 
     def make_round_comparison(self, trace_list, refit=False, *args, **kwargs):
@@ -1260,7 +1266,14 @@ class Footprinter():
             dev_result[indexlist] = dev
         return dev_result
                 
-    def tracelist_to_dataframe(self, trace_list, filename="dataframe.csv"):
+    def tracelist_to_csv(self, trace_list, filename="dataframe.csv"):
+        df_big = self.tracelist_to_dataframe(trace_list)
+        df_big = self.dataframe_add_differences(df_big)
+        df_big.to_csv(filename)
+        return
+
+
+    def tracelist_to_dataframe(self, trace_list):
         df_big=None
         for index, trace in enumerate(trace_list):
             bigdict={}
@@ -1271,22 +1284,25 @@ class Footprinter():
                     clusterlist.append(peak.cluster)
                     heightlist.append(peak.peak_height)
             bigdict.update({"cluster" : clusterlist, trace.file_name+" ({})".format(index) : heightlist})
-            df_small=pandas.DataFrame.from_dict(bigdict)
+            df_small = pandas.DataFrame.from_dict(bigdict)
             if not df_big is None:
                 df_big = df_big.merge(df_small, on="cluster", how="outer")
             else:
                 df_big=df_small
-        
+        return df_big
+
+    def dataframe_add_differences(self, dataframe):    
         ## calculate differences
-        for indexlist, trace_combination in zip( list(itertools.combinations(range(len(trace_list)), r=2)) , \
-                                                         list(itertools.combinations(trace_list, r=2)) ):
-            t,u=trace_combination
+        df_big = dataframe
+        cols = list(dataframe.columns)
+        cols = [col for col in cols if "(" in col and ")" in col]
+
+        for indexlist, trace_combination in zip( list(itertools.combinations(range(len(cols)), r=2)) , \
+                                                         list(itertools.combinations(cols, r=2)) ):
+            tf,uf=trace_combination
             i1,i2=indexlist
-            tf = t.file_name+" ({})".format(i1)
-            uf = u.file_name+" ({})".format(i2)
             df_big["({}-{})".format(i1,i2)] = df_big[tf] - df_big[uf]
             df_big["({}-{})/{}".format(i1,i2,i1)] = ( df_big[tf] - df_big[uf] ) / df_big[tf]
-        
-        
-        df_big.to_csv(filename)
-        return
+
+        return df_big
+
