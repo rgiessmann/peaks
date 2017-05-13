@@ -1306,3 +1306,39 @@ class Footprinter():
 
         return df_big
 
+    def unite_peaks_to_one(self, ref, trace_list, cluster_tuple, block_name=""):
+        cluster_list = cluster_tuple
+        if block_name=="":
+            block_name = tuple(cluster_list)
+        for trace in [ref] + trace_list:
+            allhs = [(peak.peak_height, peak.size_bp) for peak in trace.peaks if getattr(peak, "cluster", None) in cluster_list]
+            allh, alls = zip(*allhs)
+            h = sum(allh)
+            s = numpy.mean(alls)
+            p = Peak(s, h)
+
+            p.cluster = block_name
+            _1 = [ getattr(peak, "averaged_peak_size_bp_sd",None) for peak in trace.peaks if getattr(peak, "cluster", None) in cluster_list]
+            _2 = [ getattr(peak,"averaged_peak_size_bp_nm",None) for peak in trace.peaks if getattr(peak, "cluster", None) in cluster_list]
+            _3 = [ getattr(peak,"averaged_peak_height_n",None) for peak in trace.peaks if getattr(peak, "cluster", None) in cluster_list]
+            _4 = [ getattr(peak,"averaged_peak_height_nm",None) for peak in trace.peaks if getattr(peak, "cluster", None) in cluster_list]
+            _5 = [ getattr(peak,"averaged_peak_height_sd",None) for peak in trace.peaks if getattr(peak, "cluster", None) in cluster_list]
+            _6 = [ getattr(peak,"averaged_peak_size_bp_n",None) for peak in trace.peaks if getattr(peak, "cluster", None) in cluster_list]
+            _7 = [ getattr(peak,"peak_height_original",None) for peak in trace.peaks if getattr(peak, "cluster", None) in cluster_list]
+            if None not in _1:
+                    p.averaged_peak_size_bp_sd = sum(_1)
+            if None not in _2:
+                p.averaged_peak_size_bp_nm = numpy.mean(_2)
+            if None not in _3:
+                p.averaged_peak_height_n = sum(_3)
+            if None not in _4:
+                p.averaged_peak_height_nm = numpy.mean(_4)
+            if None not in _5:
+                p.averaged_peak_height_sd = sum(_5)
+            if None not in _6:
+                p.averaged_peak_size_bp_n = sum(_6)
+            if None not in _7:
+                p.peak_height_original = sum(_7)
+
+            trace.peaks.append(p)
+        return
