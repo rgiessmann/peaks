@@ -11,7 +11,7 @@ import matplotlib.pyplot as plt
 import copy
 import pandas
 import scipy.optimize
-
+import statsmodels.formula.api
 
 
 class Trace:
@@ -1054,6 +1054,67 @@ class Footprinter():
 
         return KD_matrix
 
+    def fit_data_peaks_sensitive(self, ref, trace_list, clusters_to_check=None):
+        """
+        Determines the K_D by fitting of observed fractional occupancies against
+        calculated free ligand concentration.
+
+        """
+
+        ## data has to be in the following format:
+        ## xdata = [Lfree_conc1, Lfree_conc2, ...]
+        ## ydata = [fractional_occupancy1, fractional_occupancy2, ...]    
+
+        ## output:
+        ## [ K_D(cluster1), K_D(cluster2), ... ]
+
+        sm = statsmodels.formula.api
+
+        p_matrix = []
+
+        for ref_peak, trace_peaks in self.give_all_clustered_peaks(ref, trace_list, clusters_to_check):
+
+            if ref_peak==[] and trace_peaks==[]:
+                self.log.critical("Got empty peak list for the upcoming cluster. Can't do that, sorry! :(")
+                continue
+            else:
+                self.log.debug("Evaluating cluster {} for footprinting sensitivity...".format(ref_peak.cluster))
+                #self.log.debug("DEBUG DETAIL: {}".format([ref_peak,trace_peaks]))
+
+            xdata = []
+            ydata = []
+
+            for trace_peak in trace_peaks:
+                if trace_peak.footprinted_peak == True:
+                    xdata.append(self.calculate_free_ligand_concentration(ref, [trace for trace in trace_list if trace_peak in trace.peaks][0]))
+                    ydata.append(trace_peak.fractional_occupancy)
+
+                ## TODO: shall we catch out clusters with no footprinted peaks at all?
+            df_dict = { 
+                       "x" : xdata,
+                       "y" : ydata 
+                       }
+                        
+            df = pandas.DataFrame.from_dict(df_dict)
+            res = sm.ols(formula="y ~ x - 1", data=df).fit()
+            
+            appendix = []
+            
+            appendix.append("cluster {}".format(str(ref_peak.cluster)))
+            appendix.append(res.pvalues["x"])
+            appendix.append(res.params["x"])
+            appendix.append(res.bse["x"])
+
+            ## save results...
+            ## TODO: optimize this form.
+            
+            self.log.debug(appendix)
+            p_matrix.append(appendix)
+
+
+        p_df = pandas.DataFrame.from_records(zip(*p_matrix), index=["cluster #", "pvalue", "coeff", "se"])
+        return p_df.T
+
 
     def generate_xdata_ydata(self,ref,trace_list,cluster):
 
@@ -1342,3 +1403,5 @@ class Footprinter():
 
             trace.peaks.append(p)
         return
+
+    
