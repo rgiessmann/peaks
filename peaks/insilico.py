@@ -19,8 +19,8 @@ footprinter = footprint.Footprinter()
 ## PARAMETERS FOR VALIDATION ##
 NP_RANDOM_SEED            = 123
 THRESHOLD_KD_NO_FOOTPRINT = 1000 #uM
-NOISE_PEAK_ABSOLUTE_SD    = 10   #A.U.
-NOISE_PEAK_RELATIVE_SD    = 1e-3 #relative A.U.
+NOISE_PEAK_ABSOLUTE_SD    = 50   #A.U.
+NOISE_PEAK_RELATIVE_SD    = 0    #relative A.U.
 COEFFICIENT_SD_ACCEPTED   = 2.7
 ##                           ##
 
@@ -107,9 +107,16 @@ def write_out_sample_traces(filename_inputtraces, trace_list):
         
     
 def apply_noise_peakheight(height):
-    absolute_noise = np.random.normal(loc=0, scale=NOISE_PEAK_ABSOLUTE_SD)
-    relative_noise = height * np.random.normal(loc=0, scale=NOISE_PEAK_RELATIVE_SD)
-    
+    if NOISE_PEAK_ABSOLUTE_SD > 0:
+        absolute_noise = np.random.normal(loc=0, scale=NOISE_PEAK_ABSOLUTE_SD)
+    else:
+        absolute_noise = 0
+
+    if NOISE_PEAK_RELATIVE_SD > 0:
+        relative_noise = height * np.random.normal(loc=0, scale=NOISE_PEAK_RELATIVE_SD)
+    else:
+        relative_noise = 0
+
     height = height + absolute_noise + relative_noise
     
     return height
@@ -244,37 +251,110 @@ def analyze_binary_classification_success(df):
     FN = float(len(false_negative))
 
     ## cross products below
-    PPV = TP / prediction_positive
-    FDR = FP / prediction_positive
-    FOR = FN / prediction_negative
-    NPV = TN / prediction_negative
+    try:
+        PPV = TP / prediction_positive
+    except ZeroDivisionError:
+        PPV = float("nan")
+
+    try:
+        FDR = FP / prediction_positive
+    except ZeroDivisionError:
+        FDR = float("nan")
+
+    try:
+        FOR = FN / prediction_negative
+    except ZeroDivisionError:
+        FOR = float("nan")
+
+    try:
+        NPV = TN / prediction_negative
+    except ZeroDivisionError:
+        NPV = float("nan")
+
 
     ## cross products right
-    TPR = TP / condition_positive
-    FPR = FP / condition_negative
-    FNR = FN / condition_positive
-    TNR = TN / condition_negative
+    try:
+        TPR = TP / condition_positive
+    except ZeroDivisionError:
+        TPR = float("nan")
+
+    try:
+        FPR = FP / condition_negative
+    except ZeroDivisionError:
+        FPR = float("nan")
+
+    try:
+        FNR = FN / condition_positive
+    except ZeroDivisionError:
+        FNR = float("nan")
+
+    try:
+        TNR = TN / condition_negative
+    except ZeroDivisionError:
+        TNR = float("nan")
+
 
     ## below cross products right 
-    LR_plus = TPR / FPR
-    LR_minus = FNR / TNR
+    try:
+        LR_plus = TPR / FPR
+    except ZeroDivisionError:
+        LR_plus = float("nan")
+
+    try:
+        LR_minus = FNR / TNR
+    except ZeroDivisionError:
+        LR_minus = float("nan")
     
     try:
         DOR = LR_plus / LR_minus
     except ZeroDivisionError:
         DOR = float("nan")
 
+
+
+
     ## edge bottom left
-    ACC = accuracy = (TP + TN ) / total_population
+    try:
+        ACC = accuracy = (TP + TN ) / total_population
+    except ZeroDivisionError:
+        ACC = float("nan")
+
 
     ## edge top right
-    prevalence = condition_positive / total_population
+    try:
+        prevalence = condition_positive / total_population
+    except ZeroDivisionError:
+        prevalence = float("nan")
 
     ## statistics
-    F1 = 2 * PPV * TPR / (PPV + TPR)
-    MCC = (TP*TN - FP*FN) / np.sqrt( (TP+FP)*(TP+FN)*(TN+FP)*(TN+FN) )
-    BM = TPR + TNR - 1
-    MK = PPV + NPV - 1
+    try:
+        F1 = 2 * PPV * TPR / (PPV + TPR)
+    except ZeroDivisionError:
+        F1 = float("nan")
 
-    return F1
+    try:
+        MCC = (TP*TN - FP*FN) / np.sqrt( (TP+FP)*(TP+FN)*(TN+FP)*(TN+FN) )
+    except ZeroDivisionError:
+        MCC = float("nan")
+
+    try:
+        BM = TPR + TNR - 1
+    except ZeroDivisionError:
+        BM = float("nan")
+
+    try:
+        MK = PPV + NPV - 1
+    except ZeroDivisionError:
+        MK = float("nan")
+
+
+    result_dict = {}
+    result_dict.update( { "TP": TP } )
+    result_dict.update( { "FP": FP } )
+    result_dict.update( { "TN": TN } )
+    result_dict.update( { "FN": FN } )
+    result_dict.update( { "MCC": MCC } )
+
+
+    return result_dict
         

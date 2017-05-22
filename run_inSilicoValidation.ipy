@@ -5,153 +5,177 @@ Created on Sun Apr  3 17:57:07 2016
 @author: rgiessmann
 """
 
+# coding: utf-8
 
-# generate a large data set with random errors
-
-import numpy as np
-import peaks.footprint
+import logging
+import peaks.insilico as insilico
 import pandas
-import csv
-footprint = peaks.footprint.Footprinter()
+import numpy
+
+insilico.__init__()
+
+# In[1]:
+# -------------------------------- #
+### set plotting options
+#get_ipython().magic(u'matplotlib Agg')
+# -------------------------------- #
+
+## SELECT YOUR LOGGING LEVEL ##
+_logging_level = "DEBUG"
+#_logging_level = "INFO"
+#_logging_level = "WARNING"
 
 
-## PARAMETERS FOR VALIDATION ##
-NP_RANDOM_SEED            = 123
-THRESHOLD_KD_NO_FOOTPRINT = 1000 #uM
-NOISE_PEAK_ABSOLUTE_SD    = 10   #A.U.
-NOISE_PEAK_RELATIVE_SD    = 1e-3 #relative A.U.
-COEFFICIENT_SD_ACCEPTED   = 2.7
-##                           ##
+#_logging_level = "CRITICAL"
+## ------------------------  ##
+import logging
+_level = eval("logging."+_logging_level)
+logging.basicConfig(level=_level)
+logger = logging.getLogger(__name__)
 
 
-## INTERNAL CONSTANTS ##
-NAME_sample_id = "Sample File Name"
-NAME_sample_file = "GetFromFile"
-##                    ##
+# In[2]:
+# -------------------------------- #
+## import code for data processing
+import peaks.footprint
+footprint = peaks.footprint.Footprinter() 
+# -------------------------------- #
 
-def __init__():
-    np.random.seed(NP_RANDOM_SEED)
-    
 
-def generate_dataset(kdmatrix_filename):
-    kdmatrix = read_kdmatrix(kdmatrix_filename)
-    kdvalues = get_kd_values(kdmatrix)
-    ref_trace = generate_averaged_negative_control(kdvalues)
-    create_traces_and_peaks_with_noise(sample_files, ref, kdvalues)
-    
+# In[3]:
+# -------------------------------- #
+### Import metadata for 'Peak Scanner 2' output
+trace_list = insilico.get_data("./kd-matrix-expected.csv", "./input_traces.csv")
+# -------------------------------- #
 
-def read_kdmatrix(filename_kdmatrix):
-    matrix = pandas.read_csv(filename_kdmatrix)
-    return matrix
-    
-def get_kd_values(matrix):
-    kd_series = matrix["KD mean"]
-    return kd_series
-    
-def generate_averaged_negative_control(kd_series):
-    how_many_peaks = len(kd_series)
-    
-    ref = footprint.Trace(file_name = "ref", dye_color = "B", Ltot_conc = 0, Rtot_conc = rtot, peaks=[])
 
-    for i in range(how_many_peaks):
-        peak_height = np.random.random_integers(50,1000)
-        peak_bp = i
-        ref.peaks.append(footprint.Peak(peak_bp, peak_height))
-    
-    return ref
-    
-def generate_sample_traces(filename_inputtraces, ref):
-    trace_list = []
-    
-    sample_files = read_sample_traces(filename_inputtraces)
-    
-    for entry in sample_files:
-        entry[NAME_sample_id]
-        
-        
-    
-    return trace_list
-    
-def read_sample_traces(filename_inputtraces):
-    
-    with open(filename_inputtraces) as g:
-        csv_reader = csv.DictReader(g)
-        sample_files = []
-        for row in csv_reader:
-            sample_files.append(row)
-    return sample_files
+# In[21]:
+# -------------------------------- #
+### Set options
+## accepted_offset: peaks are clustered, if their size (=bp) lies within this difference (in bp)
+## factor_method: if "num" look for optimal factor (free-floating), if "peak" find a footprinting-insensitive peak
+## weight_smaller/weight_bigger: importance of misfit peaks which are smaller / bigger than reference peaks
+## relative_mode: if "True" determine the importance of misfit peaks due to their relative size compared to the reference peak, if "False" consider absolute difference (in AU)
+## from_bp/ to_bp: peaks in this interval of sizes (=bp) shall be considered for analysis.
+
+
+_accepted_offset = 0.3
+_factor_method   = "num"
+_weight_smaller  = 1
+_weight_bigger   = 1
+_relative_mode   = True
+_from_bp         = float("-inf")
+_to_bp           = float("+inf")
+_normalize_to    = None
+_how_many_peaks_necessary = -1
+
+### Generate the reference trace
+ref = footprint.generate_averaged_negative_control(trace_list,accepted_offset=_accepted_offset,factor_method=_factor_method, weight_smaller=0.5, weight_bigger=0.5, relative_mode=_relative_mode, from_bp=_from_bp, to_bp=_to_bp, normalize_to=None, how_many_peaks_necessary=_how_many_peaks_necessary)
+# -------------------------------- #
+
+
+# In[22]:
+# -------------------------------- #
+footprint.cluster_peaks(ref,trace_list,accepted_offset=_accepted_offset)
+
+
+# In[22]:
+# -------------------------------- #
+#trace_list_plus = [ref]+trace_list
+#for trace in trace_list_plus:
+#    footprint.prune_tracepeaks_to_peaks_present_in_other_traces(trace, trace_list,\
+#                                         how_many=_how_many_peaks_necessary)
+# -------------------------------- #
 
 
 
-def write_out_sample_traces(filename_inputtraces, trace_list):
-    sample_files = read_sample_traces(filename_inputtraces)
-    
-    all_files = [entry[NAME_sample_file] for entry in sample_files]
-    
-    for f in all_files:
-        !rm {f}
-        !touch {f}
-        
-        
-    
-def apply_noise_peakheight(height):
-    absolute_noise = np.random.normal(loc=0, scale=NOISE_PEAK_ABSOLUTE_SD)
-    relative_noise = height * np.random.normal(loc=0, scale=NOISE_PEAK_RELATIVE_SD)
-    
-    height = height + absolute_noise + relative_noise
-    
-    return height
-    
-def give_footprinted_peak_height(ref_height, lconc, kd_value):
-    correct_height = ref_height * (1 - lconc/(lconc+kd_value))
-    return correct_height
-        
-def create_traces_and_peaks_with_noise(sample_files, ref, kd_series): 
-    
-    trace_list = []
-    
-    for data in sample_files:
+# In[30]:
+# -------------------------------- #
+footprint.fit_all_traces_to_one(ref, trace_list, factor_method=_factor_method,  weight_smaller=_weight_smaller, weight_bigger=_weight_bigger, relative_mode=_relative_mode, from_bp=_from_bp, to_bp=_to_bp)
+# -------------------------------- #
 
-        filename = data["Sample File Name"]
-        dye = data["Dye"]
-        ltot = data["Ltot"]
-        rtot = data["Rtot"]
-        
-        trace_list.append(footprint.Trace(file_name = filename, dye_color = dye, Ltot_conc = ltot, Rtot_conc = rtot, peaks=[]))
-    
-        for ref_peak, kd_value in zip(ref.peaks, kd_series):
-            if kd_value < THRESHOLD_KD_NO_FOOTPRINT:
-                peak_height = give_footprinted_peak_height(ref_peak.peak_height, ltot, kd_value)
-            else:
-                peak_height = ref_peak.peak_height
- 
-            peak_height = apply_noise_peakheight(peak_height)
-            peak_bp     = ref_peak.size_bp
 
-            trace_list[-1].peaks.append(footprint.Peak(peak_bp, peak_height))
-        
-    return trace_list
+
+
+# In[15]:
+# -------------------------------- #
+### Calculate fractional occupancy for all footprinted peaks, set "free" ligand concentration to total ligand concentration
+footprint.mark_footprinted_peaks(ref, trace_list, threshold=0.01, mark_all=True) 
+footprint.add_fractional_occupancies(ref,trace_list)
+# -------------------------------- #
+
+kd_matrix = footprint.fit_data_determine_kd(ref, trace_list)
+
+
+kdmat_expected = insilico.read_kdmatrix("kd-matrix-expected.csv")
+kdvalues_expected = insilico.get_kd_values(kdmat_expected)
+
+pmatrix = footprint.fit_data_peaks_sensitive(ref, trace_list)
+
+classification_df = insilico.return_binary_classification_success(kdvalues_expected, pmatrix, alpha=0.05)
+
+statistics_dict = insilico.analyze_binary_classification_success(classification_df)
+
+statistics_dict.update( { "alpha" : 0.05 } )
+
+def listify_dict_items(foo):
+    for key in foo.keys():
+        foo[key] = [ foo[key] ]
+    return
+
+listify_dict_items(statistics_dict)
+
+
+df_original = pandas.DataFrame.from_dict(statistics_dict)
+
+
+
+
+
+
+import scipy.optimize
+
+def cost_function(x):
+    alpha= x #x[0]
+
+    classification_df = insilico.return_binary_classification_success(kdvalues_expected, pmatrix, alpha)
+    statistics_dict = insilico.analyze_binary_classification_success(classification_df)
     
-def analyze_success(kd_matrix_target, kd_matrix_found):
-    success_list = []
-    difference_list = []
-    sd_list = []
-    
-    for expected, found in zip(kd_matrix_target, kd_matrix_found):
-        diff_mean = abs(expected - found["KD mean"])
-        if diff_mean < found["KD SD"] * COEFFICIENT_SD_ACCEPTED:
-            success_list.append(True)
-        else:
-            success_list.append(False)
-        difference_list.append(diff_mean)
-        sd_list.append(found["KD SD"])
-        
-    big_dict = {
-        "success" : success_list,
-        "diff"    : difference_list,
-        "sd"      : sd_list
-    }
-    
-    return big_dict
-    
-        
+    MCC = statistics_dict["MCC"]
+    cost = 1 - MCC
+
+    if numpy.isnan(cost):
+        cost = float("inf")
+
+    ##DEBUG
+    _str = "x: {}, cost: {}, MCC: {}".format(x,cost,MCC)
+    logger.debug(_str)
+
+    return cost
+
+def cost_function_logspace(x):
+    x = 10 ** x
+    return cost_function(x)
+
+x0 = [0.05]
+_bounds = [ (0,1) ]
+
+#_result = scipy.optimize.differential_evolution( cost_function, bounds=_bounds )
+
+_ranges = [ slice(-7, 1, 1e-1) ]
+_result = scipy.optimize.brute( func=cost_function_logspace, ranges=_ranges )
+
+optimal_alpha = 10 ** _result[0]
+opt_classification_df = insilico.return_binary_classification_success(kdvalues_expected, pmatrix, optimal_alpha)
+opt_statistics_dict = insilico.analyze_binary_classification_success(opt_classification_df)
+opt_statistics_dict.update( { "alpha" : optimal_alpha } )
+
+listify_dict_items(opt_statistics_dict)
+
+df_optimized = pandas.DataFrame.from_dict(opt_statistics_dict)
+
+df_out = df_original.append(df_optimized)
+
+df_out.to_csv("statistics.csv")
+
+
