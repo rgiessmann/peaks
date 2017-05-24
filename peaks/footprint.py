@@ -1205,6 +1205,11 @@ class Footprinter():
 
         return fig, ax
 
+    def kdmatrix_to_df(self,kd_matrix):
+        df = pandas.DataFrame.from_records(kd_matrix, columns=["Cluster #", "KD mean", "KD SD", "n", "m/n"])
+        return df
+
+
 
     def save_kd(self,kd_matrix, filename="kd-matrix.csv"):
         """
