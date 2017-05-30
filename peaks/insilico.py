@@ -22,6 +22,9 @@ THRESHOLD_KD_NO_FOOTPRINT = 1000 #uM
 NOISE_PEAK_ABSOLUTE_SD    = 50   #A.U.
 NOISE_PEAK_RELATIVE_SD    = 0    #relative A.U.
 COEFFICIENT_SD_ACCEPTED   = 2.7
+PEAK_HEIGHT_FROM          = 50
+PEAK_HEIGHT_TO            = 1000
+
 ##                           ##
 
 
@@ -66,7 +69,7 @@ def generate_averaged_negative_control(kd_series):
     ref = footprint.Trace(file_name = "ref", dye_color = "B", Ltot_conc = 0, Rtot_conc = 0, peaks=[])
 
     for i in range(how_many_peaks):
-        peak_height = np.random.random_integers(50,1000)
+        peak_height = np.random.random_integers(PEAK_HEIGHT_FROM,PEAK_HEIGHT_TO)
         peak_bp = i
         ref.peaks.append(footprint.Peak(peak_bp, peak_height))
     return ref
@@ -118,6 +121,9 @@ def apply_noise_peakheight(height):
         relative_noise = 0
 
     height = height + absolute_noise + relative_noise
+
+    if height < 0:
+        height = 0
     
     return height
     
@@ -139,7 +145,7 @@ def create_traces_and_peaks_with_noise(sample_files, ref, kd_series):
         trace_list.append(footprint.Trace(file_name = filename, dye_color = dye, Ltot_conc = ltot, Rtot_conc = rtot, peaks=[]))
     
         for ref_peak, kd_value in zip(ref.peaks, kd_series):
-            if kd_value < THRESHOLD_KD_NO_FOOTPRINT:
+            if is_footprint(kd_value):
                 peak_height = give_footprinted_peak_height(ref_peak.peak_height, ltot, kd_value)
             else:
                 peak_height = ref_peak.peak_height
@@ -151,6 +157,23 @@ def create_traces_and_peaks_with_noise(sample_files, ref, kd_series):
         
     return trace_list
     
+
+def is_footprint(kd_value):
+    foo=False
+    if True:
+        if True:
+            if kd_value < THRESHOLD_KD_NO_FOOTPRINT:
+                foo=True
+            if kd_value == 0:
+                foo=False
+            if kd_value is None:
+                foo=False
+            if np.isnan(kd_value):
+                foo=False
+            if np.isinf(kd_value):
+                foo=False
+    return foo
+
 def analyze_success(kd_values_target, kd_matrix_found):
     expect_list = []
     found_list =  []
@@ -160,7 +183,7 @@ def analyze_success(kd_values_target, kd_matrix_found):
     
     for expected, found in zip(kd_values_target, kd_matrix_found):
         
-        if expected > THRESHOLD_KD_NO_FOOTPRINT:
+        if not is_footprint(expected):
             expect_list.append(False) ## expect: negative
         else:
             expect_list.append(True) ## expect: positive
@@ -203,7 +226,7 @@ def return_binary_classification_success(kd_values_target, p_matrix_found, alpha
     
     for expected, (i, found) in zip(kd_values_target, p_matrix_found.iterrows() ):
         
-        if expected > THRESHOLD_KD_NO_FOOTPRINT:
+        if not is_footprint(expected):
             expect_list.append(False) ## condition negative ( = no footprint)
         else:
             expect_list.append(True)  ## condition positive ( = sensitive)
