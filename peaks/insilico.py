@@ -19,7 +19,9 @@ footprinter = footprint.Footprinter()
 ## PARAMETERS FOR VALIDATION ##
 NP_RANDOM_SEED            = 123
 THRESHOLD_KD_NO_FOOTPRINT = 1000 #uM
+NOISE_PEAK_ABSOLUTE_LOC   = 0.0  #A.U.
 NOISE_PEAK_ABSOLUTE_SD    = 50   #A.U.
+NOISE_PEAK_RELATIVE_LOC   = 0.0  #relative A.U.
 NOISE_PEAK_RELATIVE_SD    = 0    #relative A.U.
 COEFFICIENT_SD_ACCEPTED   = 2.7
 PEAK_HEIGHT_FROM          = 50
@@ -111,12 +113,12 @@ def write_out_sample_traces(filename_inputtraces, trace_list):
     
 def apply_noise_peakheight(height):
     if NOISE_PEAK_ABSOLUTE_SD > 0:
-        absolute_noise = np.random.normal(loc=0, scale=NOISE_PEAK_ABSOLUTE_SD)
+        absolute_noise = np.random.normal(loc=NOISE_PEAK_ABSOLUTE_LOC, scale=NOISE_PEAK_ABSOLUTE_SD)
     else:
         absolute_noise = 0
 
     if NOISE_PEAK_RELATIVE_SD > 0:
-        relative_noise = height * np.random.normal(loc=0, scale=NOISE_PEAK_RELATIVE_SD)
+        relative_noise = height * np.random.normal(loc=NOISE_PEAK_RELATIVE_LOC, scale=NOISE_PEAK_RELATIVE_SD)
     else:
         relative_noise = 0
 
