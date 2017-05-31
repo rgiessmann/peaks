@@ -1304,11 +1304,28 @@ class Footprinter():
                 trace.peaks.remove(trace_peak)
 
         ## hunt for cluster==0 peaks
+        def should_keep(trace_peak):
+            if trace_peak.cluster != 0:
+                return True
+            else:
+                return False
         for trace in trace_list:
-            for peak in trace.peaks:
-                if peak.cluster == 0:
-                    trace.peaks.remove(peak)
-                
+            trace.peaks[:] = [trace_peak for trace_peak in trace.peaks if should_keep(trace_peak)]
+               
+        return
+
+
+
+    def prune_tracepeaks_to_peaks_within_bp_limits(self, trace, from_bp=float("-inf"), to_bp=float("+inf") ):
+
+        def should_keep(trace_peak):
+            if from_bp <= trace_peak.size_bp <= to_bp:
+                return True
+            else:
+                return False
+
+        trace.peaks[:] = [trace_peak for trace_peak in trace.peaks if should_keep(trace_peak)]
+
         return
 
     def make_round_comparison(self, trace_list, refit=False, *args, **kwargs):
