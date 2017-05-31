@@ -61,6 +61,13 @@ ref = footprint.generate_averaged_negative_control(trace_list,accepted_offset=_a
 # -------------------------------- #
 
 
+
+for trace in [ref]+trace_list:
+    footprint.prune_tracepeaks_to_peaks_within_bp_limits(trace, from_bp=_from_bp, \
+                                         to_bp=_to_bp)
+
+
+
 # In[22]:
 # -------------------------------- #
 ### Print information about the newly created internal reference 
