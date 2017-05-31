@@ -1395,6 +1395,13 @@ class Footprinter():
             block_name = tuple(cluster_list)
         for trace in [ref] + trace_list:
             allhs = [(peak.peak_height, peak.size_bp) for peak in trace.peaks if getattr(peak, "cluster", None) in cluster_list]
+
+            if len(allhs) > 0:
+                pass
+            else:
+                ## = if no peaks are found at all in this trace, we can skip to the next trace and do not need to add a virtual peak
+                continue
+
             allh, alls = zip(*allhs)
             h = sum(allh)
             s = numpy.mean(alls)
