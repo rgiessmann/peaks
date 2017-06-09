@@ -34,28 +34,28 @@ class Peak:
         return repr(vars(self))
 
 class Index:
-    pass  
+    pass
 
 class Footprinter():
     global log
-    
+
     def __init__(self):
         ## turn on logging
         logging.basicConfig(level=logging.DEBUG)
         self.log = logging.getLogger(__name__)
         return
-    
+
     def main(self, argv=""):
 
         ## standard settings
         config_file = None
         input_file = None
-        trace_list = None 
+        trace_list = None
 
         ## argument / start option recognition
         try:
             opts, remaining_args = getopt.getopt(argv,"hc:i:",["help","config-file=","input-file="])
-            ## DEBUG: 
+            ## DEBUG:
             # print(opts,remaining_args)
         except getopt.GetoptError:
             log.fatal('You provided unusual arguments. Call me with -h to learn more.')
@@ -77,7 +77,7 @@ class Footprinter():
 
         return
 
-  
+
 
     def list_traces(self, read_filelist="../HexA.csv"):
         """
@@ -114,11 +114,11 @@ class Footprinter():
         This object consists of the following structure:
 
         [Trace(..., peaks = [Peak(...), Peak(...)], Trace(...)]
-        See Trace and Peak to learn more about these classes. """   
+        See Trace and Peak to learn more about these classes. """
 
         NAME_sample_id = "Sample File Name"
         NAME_sample_file = "GetFromFile"
-        
+
         import csv
         trace_list = []
 
@@ -130,38 +130,38 @@ class Footprinter():
                 sample_files.append(row)
 
         storage_traces = []
-            
+
         for i in sample_files:
             sample_name = i[NAME_sample_id]
             read_file = i[NAME_sample_file]
-            
+
             self.log.info("Trying to add trace {} from file {}...".format(sample_name, read_file))
-            
-            with open(read_file) as f:            
+
+            with open(read_file) as f:
                 csv_reader = csv.reader(f)
                 header = next(csv_reader)
                 index = Index()
                 index.peak_height = header.index("Height")
                 index.size_bp = header.index("Size")
                 index.file_name = header.index('Sample File Name')
-                
+
                 for row in csv_reader:
-                    if "Dye/Sample Peak" in header: #split_combined_fields == 
+                    if "Dye/Sample Peak" in header: #split_combined_fields ==
                         row.extend(row[header.index('Dye/Sample Peak')].split(","))
                         index.dye = len(header)
                         index.sample_peak = len(header)+1
                     else:
                         index.dye = header.index("Dye")
                         index.sample_peak = header.index("Sample Peak")
-                        
+
                     if row[index.file_name] == sample_name and "B" in row[index.dye]:
-                        # trace already in trace_list?                                        
+                        # trace already in trace_list?
                         if row[index.file_name] not in storage_traces:
                             # Nope.
                             ## load additional data
                             data = [sample for sample in sample_files if sample["Sample File Name"] == row[index.file_name]][0]
                             trace_list.append(
-                            Trace(file_name = data["Sample File Name"], dye_color = data["Dye"], Ltot_conc = data["Ltot"], Rtot_conc = data["Rtot"], peaks=[])                    
+                            Trace(file_name = data["Sample File Name"], dye_color = data["Dye"], Ltot_conc = data["Ltot"], Rtot_conc = data["Rtot"], peaks=[])
                             )
                             storage_traces.append(row[index.file_name])
 
@@ -171,11 +171,11 @@ class Footprinter():
                         #to which trace?
                         t = [trace for trace in trace_list if trace.file_name == row[index.file_name]][0]
                         t.peaks.append(Peak(row[index.size_bp], row[index.peak_height]))
-                        del(t)            
+                        del(t)
 
         for foo in [sample_file[NAME_sample_id] for sample_file in sample_files]:
             if foo not in storage_traces:
-                self.log.critical("Couldn't find trace "+str(foo)+" in the given files...")        
+                self.log.critical("Couldn't find trace "+str(foo)+" in the given files...")
 
         return trace_list
 
@@ -198,14 +198,14 @@ class Footprinter():
         for t in trace_list_ref:
             if t.Ltot_conc == 0:
                 conc_0_traces.append(t)
-        self.log.info("Found {} conc_0 traces.".format(len(conc_0_traces)))        
+        self.log.info("Found {} conc_0 traces.".format(len(conc_0_traces)))
 
         if len(conc_0_traces) > 1:
-            i = 0       
-            
+            i = 0
+
             for trace in conc_0_traces:
                 self.log.debug("Screening trace {}...".format(trace.file_name))
-                for ref_peak in trace.peaks:                
+                for ref_peak in trace.peaks:
                     self.log.debug("+ Screening peak {}:".format(ref_peak))
                     if "cluster" not in vars(ref_peak):
                         i += 1
@@ -231,7 +231,7 @@ class Footprinter():
             num_total_clusters = i
             self.log.info("Found {} potential clusters in total.".format(num_total_clusters))
 
-            
+
             self.log.info("Trying to find clusters which shall be rejected...")
 
             for trace in conc_0_traces:
@@ -253,14 +253,14 @@ class Footprinter():
                 for trace in conc_0_traces:
                     peaks_of_interest = [peak for peak in trace.peaks if getattr(peak, "cluster", None)==old_index]
                     for peak_of_interest in peaks_of_interest:
-                        peak_of_interest.cluster = new_index                            
+                        peak_of_interest.cluster = new_index
 
             for reset_index, (new_index, old_index) in enumerate(convert_lookup_list, 1):
                 for trace in conc_0_traces:
                     peaks_of_interest = [peak for peak in trace.peaks if getattr(peak, "cluster", None)==new_index]
                     for peak_of_interest in peaks_of_interest:
-                        peak_of_interest.cluster = reset_index                            
-                 
+                        peak_of_interest.cluster = reset_index
+
 
             num_total_clusters = len(storage_all_clusterids)
             self.log.info("... left with {} clusters.".format(num_total_clusters))
@@ -269,12 +269,12 @@ class Footprinter():
 
             ## gradually fit optimal heights
             for x in range(5):
-                self.log.debug("--- ROUND {} ---".format(x))    
+                self.log.debug("--- ROUND {} ---".format(x))
                 ref = Trace("averaged_negative_control", "B", 0, 0, [])
 
                 ## 1. create dummy peaks
                 for i in range(1,num_total_clusters+1):
-                    self.log.debug("Evaluate cluster {:3}".format(i)) 
+                    self.log.debug("Evaluate cluster {:3}".format(i))
                     ## fill peak storage
                     trace_storage = []
                     for trace in conc_0_traces:
@@ -300,16 +300,16 @@ class Footprinter():
                 ## 3. correct with factor
                 for index, trace in enumerate(conc_0_traces):
                     self.correct_peaks_with_factor(trace,optimal_factors[index])
-                    
+
                 ## normalize to largest peak
-        
+
                 #normalize_to  = max([peak.peak_height for peak in ref.peaks])
                 #normalize_to /= 1000.0
                 #for i in range(len(ref.peaks)):
-                #    ref.peaks[i].peak_height              /= normalize_to 
+                #    ref.peaks[i].peak_height              /= normalize_to
 
 
-            ref = Trace("averaged_negative_control", "B", 0, 0, [])        
+            ref = Trace("averaged_negative_control", "B", 0, 0, [])
             num_conc_0_traces = float(len(conc_0_traces))
 
             for i in range(1,num_total_clusters+1):
@@ -332,7 +332,7 @@ class Footprinter():
                 ref.peaks[i-1].averaged_peak_size_bp_n = averaged_peak_size_bp_n
                 ref.peaks[i-1].averaged_peak_size_bp_sd = averaged_peak_size_bp_sd
                 ref.peaks[i-1].averaged_peak_size_bp_nm = averaged_peak_size_bp_n / num_conc_0_traces
-                
+
 
 
 
@@ -341,20 +341,20 @@ class Footprinter():
 
 
         elif len(conc_0_traces) == 1:
-            self.log.info("You called generate_averaged_negative_control although only 1 trace with Ltot = 0 is available. Returning the clustered trace.")        
+            self.log.info("You called generate_averaged_negative_control although only 1 trace with Ltot = 0 is available. Returning the clustered trace.")
             ## create new object
-            c = conc_0_traces[0]    
+            c = conc_0_traces[0]
             ref = Trace(c.file_name, c.dye_color, c.Ltot_conc, c.Rtot_conc)
             for p in c.peaks:
                 ref.peaks.append(Peak(p.size_bp, p.peak_height))
                 ref.peaks[-1].averaged_peak_height_n = 1
                 ref.peaks[-1].averaged_peak_height_nm = 1
-                ref.peaks[-1].averaged_peak_height_sd = 0 
-                ref.peaks[-1].averaged_peak_size_bp_n = 1 
+                ref.peaks[-1].averaged_peak_height_sd = 0
+                ref.peaks[-1].averaged_peak_size_bp_n = 1
                 ref.peaks[-1].averaged_peak_size_bp_sd = 0
                 ref.peaks[-1].averaged_peak_size_bp_nm = 1
 
-            i = 0                    
+            i = 0
             for ref_peak in ref.peaks:
                 i += 1
                 ref_peak.cluster = i
@@ -364,14 +364,169 @@ class Footprinter():
 
         ## normalize to largest peak
         self.normalize_trace_to_maxpeak(ref, normalize_to)
-    
+
         ## TODO: is this necessary?
-        ## clean-up        
+        ## clean-up
         del(trace_list_ref)
 
         ref.peaks = sorted(ref.peaks, key=lambda k: k.size_bp)
 
         return ref
+
+    def collect_all_peaks(self, trace_list, \
+                                       accepted_offset=0.5, \
+                                       factor_method="peak", \
+                                       normalize_to=1000, \
+                                       how_many_peaks_necessary=1, \
+                                       only_from_conc_0_traces = False,
+                                       *args, **kwargs):
+
+        ## clean up trace_list, in case it was processed already.
+        trace_list_ref = copy.deepcopy(trace_list)
+        for t in trace_list_ref:
+            for p in t.peaks:
+                if "cluster" in vars(p):
+                    del(p.cluster)
+                    pass
+
+        conc_0_traces = []
+        for t in trace_list_ref:
+            if only_from_conc_0_traces:
+                if t.Ltot_conc == 0:
+                    conc_0_traces.append(t)
+            else:
+                conc_0_traces.append(t)
+        self.log.info("Found {} conc_0 traces.".format(len(conc_0_traces)))
+
+        if len(conc_0_traces) > 1:
+            i = 0
+
+            for trace in conc_0_traces:
+                self.log.debug("Screening trace {}...".format(trace.file_name))
+                for ref_peak in trace.peaks:
+                    self.log.debug("+ Screening peak {}:".format(ref_peak))
+                    if "cluster" not in vars(ref_peak):
+                        i += 1
+                        ref_peak.cluster = i
+                        for t in conc_0_traces:
+                            self.log.debug("++ Screening trace {}...".format(t.file_name))
+                            for peak in t.peaks:
+                                self.log.debug("+++ Screening peak {}:".format(peak))
+                                if abs(peak.size_bp - ref_peak.size_bp) < accepted_offset:
+                                    self.log.debug("++++ Found a peak closeby!")
+                                    if "cluster" not in vars(peak):
+                                        self.log.debug("+++++ Identified a peak to cluster with.")
+                                        peak.cluster = i
+                                    else:
+                                        del(ref_peak.cluster)
+                                        if peak != ref_peak:
+                                            self.log.critical("+++++ A peak is lying within the accepted offset for TWO clusters, not just one, as expected! This should not happen!")
+                                            ref_peak.cluster = i
+                                            self.log.critical("{} : {}".format(trace.file_name, ref_peak))
+                                            self.log.critical("{} : {}".format(t.file_name, peak))
+                                        else:
+                                            ref_peak.cluster = i
+            num_total_clusters = i
+            self.log.info("Found {} potential clusters in total.".format(num_total_clusters))
+
+
+            self.log.info("Trying to find clusters which shall be rejected...")
+
+            for trace in conc_0_traces:
+                index = conc_0_traces.index(trace)
+                slice_conc_0_traces = conc_0_traces[:index] + conc_0_traces[index+1:]
+                self.prune_tracepeaks_to_peaks_present_in_other_traces(trace, slice_conc_0_traces, how_many_peaks_necessary)
+
+            storage_all_clusterids = []
+            for trace in conc_0_traces:
+                clusterids_in_this_trace = [peak.cluster for peak in trace.peaks if hasattr(peak, "cluster")]
+                storage_all_clusterids.extend(clusterids_in_this_trace)
+            storage_all_clusterids = set(storage_all_clusterids)
+
+            # reset cluster index
+            constant_shift = 100
+            convert_lookup_list = list(enumerate(storage_all_clusterids,len(storage_all_clusterids)+constant_shift))
+
+            for new_index, old_index in convert_lookup_list:
+                for trace in conc_0_traces:
+                    peaks_of_interest = [peak for peak in trace.peaks if getattr(peak, "cluster", None)==old_index]
+                    for peak_of_interest in peaks_of_interest:
+                        peak_of_interest.cluster = new_index
+
+            for reset_index, (new_index, old_index) in enumerate(convert_lookup_list, 1):
+                for trace in conc_0_traces:
+                    peaks_of_interest = [peak for peak in trace.peaks if getattr(peak, "cluster", None)==new_index]
+                    for peak_of_interest in peaks_of_interest:
+                        peak_of_interest.cluster = reset_index
+
+
+            num_total_clusters = len(storage_all_clusterids)
+            self.log.info("... left with {} clusters.".format(num_total_clusters))
+
+            num_total_traces = float(len(conc_0_traces))
+
+            ref = Trace("averaged_negative_control", "B", 0, 0, [])
+            num_conc_0_traces = float(len(conc_0_traces))
+
+            for i in range(1,num_total_clusters+1):
+                trace_storage = []
+                for trace in conc_0_traces:
+                    for peak in trace.peaks:
+                        if peak.cluster == i:
+                            trace_storage.append(peak)
+                averaged_peak_height_mean = numpy.mean([p.peak_height for p in trace_storage])
+                averaged_peak_height_n = len(trace_storage)
+                averaged_peak_height_sd = numpy.std([p.peak_height for p in trace_storage])
+                averaged_peak_size_bp_mean = numpy.mean([p.size_bp for p in trace_storage])
+                averaged_peak_size_bp_n = len(trace_storage)
+                averaged_peak_size_bp_sd = numpy.std([p.size_bp for p in trace_storage])
+
+                ref.peaks.append(Peak(averaged_peak_size_bp_mean,averaged_peak_height_mean))
+                ref.peaks[i-1].averaged_peak_height_n = averaged_peak_height_n
+                ref.peaks[i-1].averaged_peak_height_nm = averaged_peak_height_n / num_conc_0_traces
+                ref.peaks[i-1].averaged_peak_height_sd = averaged_peak_height_sd
+                ref.peaks[i-1].averaged_peak_size_bp_n = averaged_peak_size_bp_n
+                ref.peaks[i-1].averaged_peak_size_bp_sd = averaged_peak_size_bp_sd
+                ref.peaks[i-1].averaged_peak_size_bp_nm = averaged_peak_size_bp_n / num_conc_0_traces
+
+
+
+
+
+
+
+
+        elif len(conc_0_traces) == 1:
+            self.log.info("You called generate_averaged_negative_control although only 1 trace with Ltot = 0 is available. Returning the clustered trace.")
+            ## create new object
+            c = conc_0_traces[0]
+            ref = Trace(c.file_name, c.dye_color, c.Ltot_conc, c.Rtot_conc)
+            for p in c.peaks:
+                ref.peaks.append(Peak(p.size_bp, p.peak_height))
+                ref.peaks[-1].averaged_peak_height_n = 1
+                ref.peaks[-1].averaged_peak_height_nm = 1
+                ref.peaks[-1].averaged_peak_height_sd = 0
+                ref.peaks[-1].averaged_peak_size_bp_n = 1
+                ref.peaks[-1].averaged_peak_size_bp_sd = 0
+                ref.peaks[-1].averaged_peak_size_bp_nm = 1
+
+            i = 0
+            for ref_peak in ref.peaks:
+                i += 1
+                ref_peak.cluster = i
+
+        else:
+            self.log.critical("The provided trace_list contains no negative control traces with Ltot = 0.")
+
+        ## TODO: is this necessary?
+        ## clean-up
+        del(trace_list_ref)
+
+        ref.peaks = sorted(ref.peaks, key=lambda k: k.size_bp)
+
+        return ref
+
+
 
     def normalize_trace_to_maxpeak(self, trace, normalize_to=1000):
         ## normalize to largest peak
@@ -381,7 +536,7 @@ class Footprinter():
             normalize_to  = max([peak.peak_height for peak in trace.peaks]) / normalize_to
             for i in range(len(trace.peaks)):
                 if hasattr(trace.peaks[i], "peak_height"):
-                    trace.peaks[i].peak_height              /= normalize_to 
+                    trace.peaks[i].peak_height              /= normalize_to
                 if hasattr(trace.peaks[i], "averaged_peak_height_sd"):
                     trace.peaks[i].averaged_peak_height_sd  /= normalize_to
         return
@@ -394,7 +549,7 @@ class Footprinter():
             normalize_to  = sum([peak.peak_height for peak in trace.peaks]) / normalize_to
             for i in range(len(trace.peaks)):
                 if hasattr(trace.peaks[i], "peak_height"):
-                    trace.peaks[i].peak_height              /= normalize_to 
+                    trace.peaks[i].peak_height              /= normalize_to
                 if hasattr(trace.peaks[i], "averaged_peak_height_sd"):
                     trace.peaks[i].averaged_peak_height_sd  /= normalize_to
         return
@@ -431,7 +586,7 @@ class Footprinter():
         if "ylim" in kwargs:
             plt.ylim(kwargs["ylim"])
         if "xlim" in kwargs:
-            plt.xlim(kwargs["xlim"])    
+            plt.xlim(kwargs["xlim"])
 
         ## plot points
         heights = []
@@ -471,7 +626,7 @@ class Footprinter():
         if "ylim" in kwargs:
             plt.ylim(kwargs["ylim"])
         if "xlim" in kwargs:
-            plt.xlim(kwargs["xlim"])  
+            plt.xlim(kwargs["xlim"])
 
         ## plot points
         sizes = []
@@ -503,7 +658,7 @@ class Footprinter():
 
     def cluster_peaks(self, ref, trace_list,accepted_offset=0.25):
         """
-        Compiles peaks from trace_list to clusters of peaks which match to one 
+        Compiles peaks from trace_list to clusters of peaks which match to one
         particular peak in ref. This function directly modifies the objects given
         as arguments!
 
@@ -514,7 +669,7 @@ class Footprinter():
 
         """
 
-        i = 0            
+        i = 0
 
         for ref_peak in ref.peaks:
             i += 1
@@ -529,23 +684,23 @@ class Footprinter():
                 if "cluster" not in vars(peak):
                     peak.cluster = 0
 
-        return 
+        return
 
 
     def calculate_deviance_for_all_peaks(self, ref, trace_list, weight_smaller=1,weight_bigger=1, relative_mode=False, from_bp=float("-inf"), to_bp=float("+inf")):
         '''
-        Calculates the area between peaks that were identified as clustered in ref, 
+        Calculates the area between peaks that were identified as clustered in ref,
         compared to trace. Allows for comparison of two traces only.
 
 
-        Options weight_smaller, weight_bigger are used to consider only peaks from 
+        Options weight_smaller, weight_bigger are used to consider only peaks from
         trace which are smaller or bigger, respectively, than the reference peak.
 
         Option //BROKE relative_mode allows to calculate the deviation in relative terms to
         the reference peak.
 
-        ## TODO: 
-        from_bp .. to_bp 
+        ## TODO:
+        from_bp .. to_bp
 
         ## TODO: calculate deviance for trace_list --> saves computing time
         '''
@@ -556,7 +711,7 @@ class Footprinter():
         warning_trace_range = False
 
         deviance_for_smaller_peaks = 0
-        deviance_for_bigger_peaks = 0        
+        deviance_for_bigger_peaks = 0
         num_smaller=0
         num_bigger=0
 
@@ -577,7 +732,7 @@ class Footprinter():
             ## allows to calculate deviance for one trace only
             for trace_peak in trace_peaks:
                 if from_bp < ref_peak.size_bp < to_bp:
-                    if weight_by_inverse_height == True: 
+                    if weight_by_inverse_height == True:
                         ## this mode calculates deviation as percentage point, with different
                         ## weights for each peak
                         weight = 1
@@ -616,7 +771,7 @@ class Footprinter():
 
     def give_all_clustered_peaks(self, ref, trace_list, cluster=None):
         """
-        Generates lists of clustered peaks from traces in trace_list, clustered to 
+        Generates lists of clustered peaks from traces in trace_list, clustered to
         the peaks in ref.
 
         Yields (ref_peak, [trace_peak, trace_peak, ...]) elements.
@@ -629,10 +784,10 @@ class Footprinter():
             clusters_to_search = set([peak.cluster for peak in ref.peaks])
         else:
             clusters_to_search = cluster
-            
+
         for peak_cluster in clusters_to_search:
-            ref_peak = [peak for peak in ref.peaks if peak.cluster == peak_cluster]        
-            trace_peaks=[]   
+            ref_peak = [peak for peak in ref.peaks if peak.cluster == peak_cluster]
+            trace_peaks=[]
             for trace in trace_list:
                 foo=[peak for peak in trace.peaks if peak.cluster == peak_cluster]
                 if len(foo) == 1:
@@ -650,9 +805,9 @@ class Footprinter():
         with the given options.
 
         Returns the optimal factor.
-        ## TODO: implement real optimizer via scipy.optimize()    
+        ## TODO: implement real optimizer via scipy.optimize()
         """
-        
+
         ## store original peak heights
         for trace in trace_list:
             for peak in trace.peaks:
@@ -660,7 +815,7 @@ class Footprinter():
                     peak.peak_height_original = peak.peak_height
                 else:
                     ## was already modified by factor
-                    peak.peak_height_original = peak.peak_height_original 
+                    peak.peak_height_original = peak.peak_height_original
                 peak.peak_height_tmp = peak.peak_height
                 peak.peak_height = peak.peak_height_original
 
@@ -708,18 +863,18 @@ class Footprinter():
 
     def check_which_peaks_to_optimize(self, ref, trace_list, weight_smaller=1, weight_bigger=1, relative_mode=False, from_bp=float("-inf"), to_bp=float("+inf")):
         """
-        
+
         """
-        
+
         storage_dicts_to_panda = []
 
         for ref_peak,trace_peaks in self.give_all_clustered_peaks(ref,trace_list):
             if len(trace_peaks) != len(trace_list):
                 self.log.debug("Peak at {:6.2f} bp is not found in all traces.".format(ref_peak.size_bp))
                 self.log.debug("-- It is contained in {} traces, though. The missing ones are:".format(len(trace_peaks)))
-                
+
                 which_traces_are_contained = []
-                
+
                 for trace in trace_list:
                     for trace_peak in trace_peaks:
                         if trace_peak in trace.peaks:
@@ -729,7 +884,7 @@ class Footprinter():
                         self.log.debug("-- {!s}".format(trace.file_name))
             else:
                 which_traces_are_contained = trace_list[:]
-        
+
             dict_to_panda = {}
             dict_to_panda.update({"cluster" : ref_peak.cluster})
             dict_to_panda.update({"size_bp" : ref_peak.size_bp})
@@ -745,13 +900,13 @@ class Footprinter():
 
             storage_dicts_to_panda.append(dict_to_panda)
 
-   
+
         df = pandas.DataFrame.from_records(storage_dicts_to_panda)
-    
+
         df_sum = df.sum()
         df_sum.name = "total"
         df = df.append(df_sum)
-        
+
         df_relative = df_sum.copy()
         df_relative.name="total_percentage"
         df_relative /= float(len(ref.peaks))
@@ -764,37 +919,37 @@ class Footprinter():
         Ltots = pandas.DataFrame.from_records([dict_to_panda])
         Ltots.index = ["Ltot_conc"]
         df = df.append(Ltots)
-        
+
         return df
-                
-                        
+
+
     def check_which_trace_to_eliminate(self, ref, trace_list, weight_smaller=1, weight_bigger=1, relative_mode=False, from_bp=float("-inf"), to_bp=float("+inf")):
         which_traces_are_the_worst = numpy.asarray([0 for i in trace_list])
-        
+
         for ref_peak, trace_peaks in self.give_all_clustered_peaks(ref,trace_list):
-            
+
             which_traces_contained_this_peak = []
             for trace in trace_list:
                 for trace_peak in trace_peaks:
                     if trace_peak in trace.peaks:
                         which_traces_contained_this_peak.append(trace)
-            
+
             malus_array = numpy.asarray([0 for i in trace_list])
             for index, trace in enumerate(trace_list):
                 if not trace in which_traces_contained_this_peak:
                     malus_array[index] = 1
-            
+
             which_traces_are_the_worst += malus_array
-            
+
         foo = zip(*sorted(list(enumerate(which_traces_are_the_worst)), key=lambda k: k[1], reverse=True))[0]
         sorted_tracelist_descending_order = [trace_list[index].file_name for index in foo]
         sorted_cumulated_malus_descending_order = [which_traces_are_the_worst[index] for index in foo]
-        
+
         self.log.debug(sorted_tracelist_descending_order)
         self.log.debug(sorted_cumulated_malus_descending_order)
-            
+
         return which_traces_are_the_worst
-            
+
 
     def determine_factor_single_peak(self, ref, trace_list, weight_smaller=1, weight_bigger=1, relative_mode=False, from_bp=20, to_bp=170):
         """
@@ -814,7 +969,7 @@ class Footprinter():
                     peak.peak_height_original = peak.peak_height
                 else:
                     ## was already modified by factor
-                    peak.peak_height_original = peak.peak_height_original 
+                    peak.peak_height_original = peak.peak_height_original
                 peak.peak_height_tmp = peak.peak_height
                 peak.peak_height = peak.peak_height_original
 
@@ -843,7 +998,7 @@ class Footprinter():
 
             self.log.debug("Using peak at {:6.2f} bp ...".format(ref_peak.size_bp))
 
-                
+
             testing_factors = []
 
             ## works with one trace at a time
@@ -879,9 +1034,9 @@ class Footprinter():
             for peak in trace.peaks:
                 peak.peak_height = peak.peak_height_tmp
                 del(peak.peak_height_tmp)
-                
 
-        return optimal_factors 
+
+        return optimal_factors
 
 
     def correct_peaks_with_factor(self, trace, factor):
@@ -902,7 +1057,7 @@ class Footprinter():
         """
         Marks potentially footprinted peaks, i.e. peaks to be evaluated, by setting
         the flag footprinted_peak, if the peak_heights of ref and trace differ by
-        threshold*ref_peak.peak_height (standard value = 10%) and if the ligand 
+        threshold*ref_peak.peak_height (standard value = 10%) and if the ligand
         concentrations of the compared traces differ from each other.
 
         Sets the flag to True, if the conditions above are fulfilled, otherwise
@@ -929,14 +1084,14 @@ class Footprinter():
                     if ref.Ltot_conc != trace.Ltot_conc:
                         trace_peak.footprinted_peak = True
                     else:
-                        trace_peak.footprinted_peak = False                
+                        trace_peak.footprinted_peak = False
                 else:
-                    trace_peak.footprinted_peak = False        
+                    trace_peak.footprinted_peak = False
 
                 if mark_all == True:
                     trace_peak.footprinted_peak = True
 
-        return 
+        return
 
     def add_fractional_occupancies(self, ref,trace_list):
         """
@@ -947,9 +1102,9 @@ class Footprinter():
 
         for ref_peak,trace_peaks in self.give_all_clustered_peaks(ref,trace_list):
             for trace_peak in trace_peaks:
-                trace_peak.fractional_occupancy = 1 - trace_peak.peak_height / ref_peak.peak_height        
+                trace_peak.fractional_occupancy = 1 - trace_peak.peak_height / ref_peak.peak_height
 
-        return 
+        return
 
 
     def calculate_free_ligand_concentration(self, ref,trace,mode="Ltot"):
@@ -976,8 +1131,8 @@ class Footprinter():
             #trace_peak.Lfree_conc = trace.Ltot_conc - trace.Rtot_conc*trace_peak.fractional_occupancy
 
         if mode=="Ltot":
-        ## to make this reproducible with old evaluations:    
-            Lfree_conc = trace.Ltot_conc 
+        ## to make this reproducible with old evaluations:
+            Lfree_conc = trace.Ltot_conc
         else:
             ## no other modes than "Ltot" available!
             raise
@@ -1005,7 +1160,7 @@ class Footprinter():
 
         ## data has to be in the following format:
         ## xdata = [Lfree_conc1, Lfree_conc2, ...]
-        ## ydata = [fractional_occupancy1, fractional_occupancy2, ...]    
+        ## ydata = [fractional_occupancy1, fractional_occupancy2, ...]
 
         ## output:
         ## [ K_D(cluster1), K_D(cluster2), ... ]
@@ -1036,7 +1191,7 @@ class Footprinter():
             ## fitting...
             try:
                 popt, pcov= curve_fit(self.fitFunc_fR, xdata, ydata)
-                # compute SE, i.e. standard deviation errors 
+                # compute SE, i.e. standard deviation errors
                 perr = numpy.sqrt(numpy.diag(pcov))
                 _kd = popt[0]
                 _err = perr[0]
@@ -1044,7 +1199,7 @@ class Footprinter():
                 _kd, _cov, _err = numpy.nan, numpy.nan, numpy.nan
 
 
-            
+
             ## save results...
             ## TODO: optimize this form.
             appendix = ["cluster "+str(ref_peak.cluster), _kd, _err, len(ydata), float(len(ydata))/float(len(trace_list))]
@@ -1063,7 +1218,7 @@ class Footprinter():
 
         ## data has to be in the following format:
         ## xdata = [Lfree_conc1, Lfree_conc2, ...]
-        ## ydata = [fractional_occupancy1, fractional_occupancy2, ...]    
+        ## ydata = [fractional_occupancy1, fractional_occupancy2, ...]
 
         ## output:
         ## [ K_D(cluster1), K_D(cluster2), ... ]
@@ -1090,16 +1245,16 @@ class Footprinter():
                     ydata.append(trace_peak.fractional_occupancy)
 
                 ## TODO: shall we catch out clusters with no footprinted peaks at all?
-            df_dict = { 
+            df_dict = {
                        "x" : xdata,
-                       "y" : ydata 
+                       "y" : ydata
                        }
-                        
+
             df = pandas.DataFrame.from_dict(df_dict)
             res = sm.ols(formula="y ~ x - 1", data=df).fit()
-            
+
             appendix = []
-            
+
             appendix.append("cluster {}".format(str(ref_peak.cluster)))
             appendix.append(res.pvalues["x"])
             appendix.append(res.params["x"])
@@ -1107,7 +1262,7 @@ class Footprinter():
 
             ## save results...
             ## TODO: optimize this form.
-            
+
             self.log.debug(appendix)
             p_matrix.append(appendix)
 
@@ -1119,13 +1274,13 @@ class Footprinter():
     def generate_xdata_ydata(self,ref,trace_list,cluster):
 
         xdata = []
-        ydata = []    
+        ydata = []
 
         for ref_peak,trace_peaks in self.give_all_clustered_peaks(ref,trace_list):
 
             ## assumes that there is only one ref_peak with correct cluster number
             if ref_peak.cluster == cluster:
-                for trace_peak in trace_peaks:      
+                for trace_peak in trace_peaks:
                     if trace_peak.footprinted_peak == True:
                         xdata.append(self.calculate_free_ligand_concentration(ref, [trace for trace in trace_list if trace_peak in trace.peaks][0]))
                         ydata.append(trace_peak.fractional_occupancy)
@@ -1134,7 +1289,10 @@ class Footprinter():
         return xdata, ydata
 
 
-    def plot_data(self, ref, trace_list, cluster, kd_matrix):
+    def plot_data(self, ref, trace_list, cluster, kd_matrix, no_show=False):
+
+        if no_show:
+            plt.ioff()
 
         fig, ax = plt.subplots(1)
 
@@ -1145,7 +1303,7 @@ class Footprinter():
         plt.xlim([-1, 10.1])
 
         ## plot points
-        xdata, ydata = self.generate_xdata_ydata(ref,trace_list,cluster)                
+        xdata, ydata = self.generate_xdata_ydata(ref,trace_list,cluster)
         ax.plot(xdata,ydata, 'o')
 
 
@@ -1174,8 +1332,8 @@ class Footprinter():
         original_peak_heights_of_this_cluster = [peak.peak_height_original for peak in peaks_of_this_cluster]
         min_peak = min(original_peak_heights_of_this_cluster)
         max_peak = max(original_peak_heights_of_this_cluster)
-            
-        
+
+
 
         textstr = """\
         n   = {}
@@ -1193,15 +1351,13 @@ class Footprinter():
 
 
         self.log.debug(textstr)
-        
-        # place a text box in upper left in axes coords
-        props = dict(facecolor='wheat', alpha=0.5)
 
         # place a text box in upper left in axes coords
-        ax.text(0.05, 0.95, textstr, transform=ax.transAxes, fontsize=14, family="monospace",
-            verticalalignment='top', bbox=props)
+        props = dict(facecolor='wheat', alpha=0.3)
 
-        plt.show()
+        # place a text box in upper left in axes coords
+        ax.text(0.95, 0.05, textstr, horizontalalignment="right", verticalalignment="bottom", transform=ax.transAxes, fontsize=12, family="monospace",
+            bbox=props, color=(0,0,0,0.5) )
 
         return fig, ax
 
@@ -1284,7 +1440,7 @@ class Footprinter():
         if "ylim" in kwargs:
             plt.ylim(kwargs["ylim"])
         if "xlim" in kwargs:
-            plt.xlim(kwargs["xlim"])    
+            plt.xlim(kwargs["xlim"])
 
         plt.show()
 
@@ -1294,13 +1450,13 @@ class Footprinter():
     def prune_tracepeaks_to_peaks_present_in_other_traces(self, trace, trace_list, how_many=-1):
         cluster_list = list(self.give_all_clustered_peaks(trace, trace_list))
 
-        if how_many <= 0:
+        if how_many < 0:
             how_many = len(trace_list)
 
         for trace_peak, other_traces in cluster_list:
             if len(other_traces) >= how_many:
                 pass
-            else: 
+            else:
                 trace.peaks.remove(trace_peak)
 
         ## hunt for cluster==0 peaks
@@ -1311,7 +1467,7 @@ class Footprinter():
                 return False
         for trace in trace_list:
             trace.peaks[:] = [trace_peak for trace_peak in trace.peaks if should_keep(trace_peak)]
-               
+
         return
 
 
@@ -1348,7 +1504,7 @@ class Footprinter():
             dev = self.calculate_deviance_for_all_peaks(t, u, *args, **kwargs)
             dev_result[indexlist] = dev
         return dev_result
-                
+
     def tracelist_to_csv(self, trace_list, filename="dataframe.csv"):
         df_big = self.tracelist_to_dataframe(trace_list)
         df_big = self.dataframe_add_differences(df_big)
@@ -1374,7 +1530,7 @@ class Footprinter():
                 df_big=df_small
         return df_big
 
-    def dataframe_add_differences(self, dataframe):    
+    def dataframe_add_differences(self, dataframe):
         ## calculate differences
         df_big = dataframe
         cols = list(dataframe.columns)
@@ -1432,5 +1588,3 @@ class Footprinter():
 
             trace.peaks.append(p)
         return
-
-    
