@@ -1289,6 +1289,40 @@ class Footprinter():
         return xdata, ydata
 
 
+    def get_quality_characteristics(self, ref, trace_list, cluster, kd_matrix):
+            qc = {}
+            qc["bp"]                                      = float([ref_peak.size_bp for ref_peak in ref.peaks if ref_peak.cluster == cluster][0])
+            qc["n"]                                       = int([entry[3] for entry in kd_matrix if entry[0] == "cluster "+str(cluster)][0])
+            qc["n/m"]                                     = float([entry[4] for entry in kd_matrix if entry[0] == "cluster "+str(cluster)][0])
+            qc["kd"]                                      = float([entry[1] for entry in kd_matrix if entry[0] == "cluster "+str(cluster)][0])
+            qc["std"]                                     = float([entry[2] for entry in kd_matrix if entry[0] == "cluster "+str(cluster)][0])
+            qc["std/kd"]                                  = qc["std"] / qc["kd"]
+
+
+            qc["ref_height"]                              = float([ref_peak.peak_height for ref_peak in ref.peaks if ref_peak.cluster == cluster][0])
+            qc["ref_height_sd"]                           = float([ref_peak.averaged_peak_height_sd for ref_peak in ref.peaks if ref_peak.cluster == cluster][0])
+            qc["ref_peak_quality"]                        = float([ref_peak.averaged_peak_height_nm for ref_peak in ref.peaks if ref_peak.cluster == cluster][0])
+            qc["peaks_of_this_cluster"]                   = list(self.give_all_clustered_peaks(ref, trace_list, [cluster]))[0][1]
+            qc["original_peak_heights_of_this_cluster"]   = [peak.peak_height_original for peak in qc["peaks_of_this_cluster"]]
+            qc["min_peak"]                                = min(qc["original_peak_heights_of_this_cluster"])
+            qc["max_peak"]                                = max(qc["original_peak_heights_of_this_cluster"])
+            return qc
+
+
+    def save_quality_characteristics(self, ref, trace_list, kd_matrix, filename="quality-characteristics.csv"):
+        import csv
+        with open(filename,"w") as f:
+            # _fieldnames = qc.keys()
+            _fieldnames = ["cluster", "bp", "kd", "std", "min_peak", "max_peak", "n", "n/m", "std/kd"]
+
+            w=csv.DictWriter(f, _fieldnames, extrasaction="ignore")
+            w.writeheader()
+            for cluster in [ref_peak.cluster for ref_peak in ref.peaks]:
+                _d = self.get_quality_characteristics(ref, trace_list, cluster, kd_matrix)
+                _d["cluster"] = cluster
+                w.writerow(_d)
+        return
+
     def plot_data(self, ref, trace_list, cluster, kd_matrix, no_show=False):
 
         if no_show:
@@ -1319,34 +1353,36 @@ class Footprinter():
         ## show plot
         plt
 
-        bp  = float([ref_peak.size_bp for ref_peak in ref.peaks if ref_peak.cluster == cluster][0])
-        n   = int([entry[3] for entry in kd_matrix if entry[0] == "cluster "+str(cluster)][0])
-        n_m = float([entry[4] for entry in kd_matrix if entry[0] == "cluster "+str(cluster)][0])
-        kd  = float([entry[1] for entry in kd_matrix if entry[0] == "cluster "+str(cluster)][0])
-        std = float([entry[2] for entry in kd_matrix if entry[0] == "cluster "+str(cluster)][0])
+        qc = self.get_quality_characteristics(ref, trace_list, cluster, kd_matrix)
 
-        ref_height  = float([ref_peak.peak_height for ref_peak in ref.peaks if ref_peak.cluster == cluster][0])
-        ref_height_sd  = float([ref_peak.averaged_peak_height_sd for ref_peak in ref.peaks if ref_peak.cluster == cluster][0])
-        ref_peak_quality = float([ref_peak.averaged_peak_height_nm for ref_peak in ref.peaks if ref_peak.cluster == cluster][0])
-        peaks_of_this_cluster = list(self.give_all_clustered_peaks(ref, trace_list, [cluster]))[0][1]
-        original_peak_heights_of_this_cluster = [peak.peak_height_original for peak in peaks_of_this_cluster]
-        min_peak = min(original_peak_heights_of_this_cluster)
-        max_peak = max(original_peak_heights_of_this_cluster)
-
+        # bp  = float([ref_peak.size_bp for ref_peak in ref.peaks if ref_peak.cluster == cluster][0])
+        # n   = int([entry[3] for entry in kd_matrix if entry[0] == "cluster "+str(cluster)][0])
+        # n_m = float([entry[4] for entry in kd_matrix if entry[0] == "cluster "+str(cluster)][0])
+        # kd  = float([entry[1] for entry in kd_matrix if entry[0] == "cluster "+str(cluster)][0])
+        # std = float([entry[2] for entry in kd_matrix if entry[0] == "cluster "+str(cluster)][0])
+        #
+        # ref_height  = float([ref_peak.peak_height for ref_peak in ref.peaks if ref_peak.cluster == cluster][0])
+        # ref_height_sd  = float([ref_peak.averaged_peak_height_sd for ref_peak in ref.peaks if ref_peak.cluster == cluster][0])
+        # ref_peak_quality = float([ref_peak.averaged_peak_height_nm for ref_peak in ref.peaks if ref_peak.cluster == cluster][0])
+        # peaks_of_this_cluster = list(self.give_all_clustered_peaks(ref, trace_list, [cluster]))[0][1]
+        # original_peak_heights_of_this_cluster = [peak.peak_height_original for peak in peaks_of_this_cluster]
+        # min_peak = min(original_peak_heights_of_this_cluster)
+        # max_peak = max(original_peak_heights_of_this_cluster)
+        #
 
 
         textstr = """\
-        n   = {}
-        n/m = {:3.2f}
-        min_peakheight = {:5.1f} A.U.
-        max_peakheight = {:5.1f} A.U.
-        $K_D$ = {:3.2f} $\pm$ {:3.2f} $\mu$M
+        n   = {n}
+        n/m = {n/m:3.2f}
+        min_peakheight = {min_peak:5.1f} A.U.
+        max_peakheight = {max_peak:5.1f} A.U.
+        $K_D$ = {kd:3.2f} $\pm$ {std:3.2f} $\mu$M
 
-        ref_pos = {:4.1f} bp
-        ref_height = {:5.1f} $\pm$ {:5.1f} A.U.
-        ref_quality = {:3.2f}
+        ref_pos = {bp:4.1f} bp
+        ref_height = {ref_height:5.1f} $\pm$ {ref_height_sd:5.1f} A.U.
+        ref_quality = {ref_peak_quality:3.2f}
         """
-        textstr = textstr.format(n, n_m, min_peak, max_peak, kd, std, bp, ref_height , ref_height_sd , ref_peak_quality)
+        textstr = textstr.format(**qc)
         textstr = "\n".join([foo.strip() for foo in textstr.splitlines()])
 
 
