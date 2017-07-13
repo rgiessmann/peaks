@@ -1166,48 +1166,58 @@ class Footprinter():
         ## [ K_D(cluster1), K_D(cluster2), ... ]
 
         KD_matrix = []
-
-        for ref_peak,trace_peaks in self.give_all_clustered_peaks(ref,trace_list):
-
-            if ref_peak==[] and trace_peaks==[]:
-                self.log.critical("Got empty peak list for the upcoming cluster. Can't do that, sorry! :(")
-                continue
-            else:
-                self.log.debug("Evaluating cluster {}...".format(ref_peak.cluster))
-                self.log.debug("DEBUG DETAIL: {}".format([ref_peak,trace_peaks]))
-
-            xdata = []
-            ydata = []
-
-            for trace_peak in trace_peaks:
-                if trace_peak.footprinted_peak == True:
-                    xdata.append(self.calculate_free_ligand_concentration(ref, [trace for trace in trace_list if trace_peak in trace.peaks][0]))
-                    ydata.append(trace_peak.fractional_occupancy)
-
-                ## TODO: shall we catch out clusters with no footprinted peaks at all?
-                ## ...
-
-
-            ## fitting...
-            try:
-                popt, pcov= curve_fit(self.fitFunc_fR, xdata, ydata)
-                # compute SE, i.e. standard deviation errors
-                perr = numpy.sqrt(numpy.diag(pcov))
-                _kd = popt[0]
-                _err = perr[0]
-            except RuntimeError:
-                _kd, _cov, _err = numpy.nan, numpy.nan, numpy.nan
-
-
-
-            ## save results...
-            ## TODO: optimize this form.
-            appendix = ["cluster "+str(ref_peak.cluster), _kd, _err, len(ydata), float(len(ydata))/float(len(trace_list))]
-            self.log.debug(appendix)
-            KD_matrix.append(appendix)
-
+        for cluster in [ref_peak.cluster for ref_peak in ref.peaks]:
+            _result_dict = self.fit_data_for_one_cluster_kd(ref, trace_list, cluster)
+            _ = self.append_to_kdmatrix(KD_matrix, _result_dict, cluster, trace_list)
 
         return KD_matrix
+
+    def append_to_kdmatrix(self, KD_matrix, _result_dict, cluster, trace_list):
+        ## TODO: optimize this form.
+        _kd          = _result_dict["kd"]
+        _err         = _result_dict["std"]
+        _len_ydata   = _result_dict["len_ydata"]
+
+        appendix = ["cluster "+str(cluster), _kd, _err, _len_ydata, float(_len_ydata)/float(len(trace_list))]
+        self.log.debug(appendix)
+        KD_matrix.append(appendix)
+
+        return KD_matrix
+
+
+    def fit_data_for_one_cluster_kd(self, ref, trace_list, cluster, excluded_points=[]):
+
+        self.log.debug("Evaluating cluster {}...".format(cluster))
+        ref_peak, trace_peaks = list(self.give_all_clustered_peaks(ref, trace_list, [cluster]))[0]
+
+        if ref_peak==[] and trace_peaks==[]:
+            self.log.critical("Got empty peak list for the upcoming cluster {}. Can't do that, sorry! :(".format(cluster))
+        else:
+            self.log.debug("Evaluating cluster {}...".format(ref_peak.cluster))
+            self.log.debug("DEBUG DETAIL: {}".format([ref_peak,trace_peaks]))
+
+        xdata, ydata = self.generate_xdata_ydata(ref,trace_list,cluster)
+        ixy = list(enumerate(zip(xdata,ydata)))
+        xy = [(x,y) for i,(x,y) in ixy if i not in excluded_points]
+        xdata, ydata = zip(*list(xy))
+
+        ## fitting...
+        try:
+            popt, pcov= curve_fit(self.fitFunc_fR, xdata, ydata)
+            # compute SE, i.e. standard deviation errors
+            perr = numpy.sqrt(numpy.diag(pcov))
+            _kd = popt[0]
+            _err = perr[0]
+        except RuntimeError:
+            _kd, _cov, _err = numpy.nan, numpy.nan, numpy.nan
+
+        _return_dict = {}
+        _return_dict["kd"]          = _kd
+        _return_dict["std"]         = _err
+        _return_dict["len_ydata"]   =  len(ydata)
+
+        return _return_dict
+
 
     def fit_data_peaks_sensitive(self, ref, trace_list, clusters_to_check=None):
         """
@@ -1275,6 +1285,7 @@ class Footprinter():
 
         xdata = []
         ydata = []
+        i = 0
 
         for ref_peak,trace_peaks in self.give_all_clustered_peaks(ref,trace_list):
 
@@ -1284,7 +1295,6 @@ class Footprinter():
                     if trace_peak.footprinted_peak == True:
                         xdata.append(self.calculate_free_ligand_concentration(ref, [trace for trace in trace_list if trace_peak in trace.peaks][0]))
                         ydata.append(trace_peak.fractional_occupancy)
-
                 break
         return xdata, ydata
 
@@ -1317,13 +1327,14 @@ class Footprinter():
 
             w=csv.DictWriter(f, _fieldnames, extrasaction="ignore")
             w.writeheader()
-            for cluster in [ref_peak.cluster for ref_peak in ref.peaks]:
+            for cluster in [eval(i[0].replace("cluster ","")) for i in kd_matrix]:
+                print(repr(cluster))
                 _d = self.get_quality_characteristics(ref, trace_list, cluster, kd_matrix)
                 _d["cluster"] = cluster
                 w.writerow(_d)
         return
 
-    def plot_data(self, ref, trace_list, cluster, kd_matrix, no_show=False):
+    def plot_data(self, ref, trace_list, cluster, kd_matrix, with_point_numbers=False, no_show=False, excluded_points=[]):
 
         if no_show:
             plt.ioff()
@@ -1336,10 +1347,24 @@ class Footprinter():
         plt.ylim([-1.1, 1.1])
         plt.xlim([-1, 10.1])
 
-        ## plot points
+        ## get data
         xdata, ydata = self.generate_xdata_ydata(ref,trace_list,cluster)
-        ax.plot(xdata,ydata, 'o')
+        ixy = list(enumerate(zip(xdata,ydata)))
 
+        ## plot points
+        for i,(x,y) in ixy:
+            if i in excluded_points:
+                ax.plot(x,y, marker='o', color="grey")
+            else:
+                ax.plot(x,y, marker='o', color="blue")
+
+        ## plot point numbers, if whished for
+        if with_point_numbers == True:
+            for i,(x,y) in ixy:
+                if i in excluded_points:
+                    ax.text(x,y,i, bbox=dict(facecolor='grey', alpha=0.5))
+                else:
+                    ax.text(x,y,i, bbox=dict(facecolor='red', alpha=0.5))
 
         ## plot line
         kd = [entry[1] for entry in kd_matrix if entry[0] == "cluster "+str(cluster)]
@@ -1354,22 +1379,6 @@ class Footprinter():
         plt
 
         qc = self.get_quality_characteristics(ref, trace_list, cluster, kd_matrix)
-
-        # bp  = float([ref_peak.size_bp for ref_peak in ref.peaks if ref_peak.cluster == cluster][0])
-        # n   = int([entry[3] for entry in kd_matrix if entry[0] == "cluster "+str(cluster)][0])
-        # n_m = float([entry[4] for entry in kd_matrix if entry[0] == "cluster "+str(cluster)][0])
-        # kd  = float([entry[1] for entry in kd_matrix if entry[0] == "cluster "+str(cluster)][0])
-        # std = float([entry[2] for entry in kd_matrix if entry[0] == "cluster "+str(cluster)][0])
-        #
-        # ref_height  = float([ref_peak.peak_height for ref_peak in ref.peaks if ref_peak.cluster == cluster][0])
-        # ref_height_sd  = float([ref_peak.averaged_peak_height_sd for ref_peak in ref.peaks if ref_peak.cluster == cluster][0])
-        # ref_peak_quality = float([ref_peak.averaged_peak_height_nm for ref_peak in ref.peaks if ref_peak.cluster == cluster][0])
-        # peaks_of_this_cluster = list(self.give_all_clustered_peaks(ref, trace_list, [cluster]))[0][1]
-        # original_peak_heights_of_this_cluster = [peak.peak_height_original for peak in peaks_of_this_cluster]
-        # min_peak = min(original_peak_heights_of_this_cluster)
-        # max_peak = max(original_peak_heights_of_this_cluster)
-        #
-
 
         textstr = """\
         n   = {n}
