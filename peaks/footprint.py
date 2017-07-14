@@ -1198,8 +1198,12 @@ class Footprinter():
 
         xdata, ydata = self.generate_xdata_ydata(ref,trace_list,cluster)
         ixy = list(enumerate(zip(xdata,ydata)))
-        xy = [(x,y) for i,(x,y) in ixy if i not in excluded_points]
-        xdata, ydata = zip(*list(xy))
+        xy = list( [(x,y) for i,(x,y) in ixy if i not in excluded_points] )
+        print xy
+        if len(xy) > 0:
+            xdata, ydata = zip(*list(xy))
+        else:
+            xdata, ydata = [], []
 
         ## fitting...
         try:
@@ -1410,7 +1414,11 @@ class Footprinter():
         df = pandas.DataFrame.from_records(kd_matrix, columns=["Cluster #", "KD mean", "KD SD", "n", "m/n"])
         return df
 
-
+    def kdmatrix_df_add_bp(self, kd_df, ref):
+        cluster_bp_list = list( [("cluster "+str(ref_peak.cluster), ref_peak.size_bp) for ref_peak in ref.peaks] )
+        df = pandas.DataFrame.from_records(cluster_bp_list, columns=["Cluster #", "bp"])
+        _df = kd_df.merge(df, on="Cluster #")
+        return _df
 
     def save_kd(self,kd_matrix, filename="kd-matrix.csv"):
         """

@@ -141,7 +141,9 @@ for cluster in [ref_peak.cluster for ref_peak in ref.peaks]:
 # In[28]:
 # -------------------------------- #
 ### Save K_d-Matrix to filename
-footprint.save_kd(kd_matrix, filename="kd-matrix_MS035_036_Ltot.csv")
+kd_df = footprint.kdmatrix_to_df(kd_matrix)
+kd_df_out = footprint.kdmatrix_df_add_bp(kd_df, ref)
+kd_df_out.to_csv("kd-matrix.csv")
 ### Save quality characteristics
 footprint.save_quality_characteristics(ref, trace_list, kd_matrix)
 # -------------------------------- #
