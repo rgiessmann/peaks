@@ -1639,10 +1639,10 @@ class Footprinter():
         for trace in [ref] + trace_list:
             allhs = [(peak.peak_height, peak.size_bp) for peak in trace.peaks if getattr(peak, "cluster", None) in cluster_list]
 
-            if len(allhs) > 0:
+            if len(allhs) == len(cluster_list):
                 pass
             else:
-                ## = if no peaks are found at all in this trace, we can skip to the next trace and do not need to add a virtual peak
+                ## = if not all desired peaks are found in this trace, we skip to the next trace and do not add a virtual peak
                 continue
 
             allh, alls = zip(*allhs)
