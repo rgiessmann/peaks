@@ -150,6 +150,9 @@ footprint.save_quality_characteristics(ref, trace_list, kd_matrix)
 
 
 
+
+
+
 # -------------------------------- #
 ### Draw a plot and determine KD with excluded points
 ##
@@ -167,6 +170,30 @@ footprint.save_kd(kd_matrix, filename="kd-matrix-with-some-points-excluded.csv")
 footprint.save_quality_characteristics(ref, trace_list, kd_matrix, filename="quality-characteristics-with-some-points-excluded.csv")
 ##
 # -------------------------------- #
+
+
+
+## NOT WORKING YET ##
+
+# -------------------------------- #
+### Draw a plot and determine KD with excluded points and a residual term
+##
+#cluster = 1
+#excluded_points = [0,1,2]
+##
+##
+#kd_matrix = []
+#_result_dict = footprint.fit_data_for_one_cluster_kd(ref, trace_list, cluster=cluster, excluded_points=excluded_points, method="residual")
+#footprint.append_to_kdmatrix(kd_matrix, _result_dict, cluster, trace_list)
+#fig, ax = footprint.plot_data(ref, trace_list, cluster, kd_matrix, with_point_numbers=True, no_show=True, excluded_points=excluded_points)
+#filename = "figures/plot-cluster{}.excluded{}.png".format(cluster, excluded_points)
+#fig.savefig(filename)
+#footprint.save_kd(kd_matrix, filename="kd-matrix-with-some-points-excluded.csv")
+#footprint.save_quality_characteristics(ref, trace_list, kd_matrix, filename="quality-characteristics-with-some-points-excluded.csv")
+##
+# -------------------------------- #
+
+## ABOVE: NOT WORKING YET ##
 
 
 

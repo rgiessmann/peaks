@@ -1150,6 +1150,16 @@ class Footprinter():
 
         return fR
 
+    def fitFunc_fR_with_residual(self, Lfree_conc, Kd, plateau_level):
+        ## underlying formula:
+        ## y = fR
+        ## x = Lfree_conc
+        ## to be fitted: Kd
+
+        fR = (Lfree_conc)/(Lfree_conc + Kd) - (1-plateau_level)
+
+        return fR
+
 
     def fit_data_determine_kd(self, ref, trace_list):
         """
@@ -1185,7 +1195,7 @@ class Footprinter():
         return KD_matrix
 
 
-    def fit_data_for_one_cluster_kd(self, ref, trace_list, cluster, excluded_points=[]):
+    def fit_data_for_one_cluster_kd(self, ref, trace_list, cluster, excluded_points=[], method="normal"):
 
         self.log.debug("Evaluating cluster {}...".format(cluster))
         ref_peak, trace_peaks = list(self.give_all_clustered_peaks(ref, trace_list, [cluster]))[0]
@@ -1205,20 +1215,44 @@ class Footprinter():
         else:
             xdata, ydata = [], []
 
-        ## fitting...
-        try:
-            popt, pcov= curve_fit(self.fitFunc_fR, xdata, ydata)
-            # compute SE, i.e. standard deviation errors
-            perr = numpy.sqrt(numpy.diag(pcov))
-            _kd = popt[0]
-            _err = perr[0]
-        except RuntimeError:
-            _kd, _cov, _err = numpy.nan, numpy.nan, numpy.nan
+        if method=="normal":
+            ## fitting...
+            try:
+                popt, pcov= curve_fit(self.fitFunc_fR, xdata, ydata)
+                # compute SE, i.e. standard deviation errors
+                perr = numpy.sqrt(numpy.diag(pcov))
+                _kd = popt[0]
+                _err = perr[0]
+            except RuntimeError:
+                _kd, _cov, _err = numpy.nan, numpy.nan, numpy.nan
 
-        _return_dict = {}
-        _return_dict["kd"]          = _kd
-        _return_dict["std"]         = _err
-        _return_dict["len_ydata"]   =  len(ydata)
+            _return_dict = {}
+            _return_dict["kd"]          = _kd
+            _return_dict["std"]         = _err
+            _return_dict["len_ydata"]   =  len(ydata)
+
+        else:
+            ## fitting...
+            try:
+                popt, pcov= curve_fit(self.fitFunc_fR_with_residual, xdata, ydata)
+                # compute SE, i.e. standard deviation errors
+                self.log.debug("pcov:")
+                self.log.debug(pcov)
+                perr = numpy.sqrt(numpy.diag(pcov))
+                _kd = popt[0]
+                _residual = popt[1]
+                _err_kd = perr[0]
+                _err_residual = perr[1]
+            except RuntimeError:
+                _kd, _residual, _err_kd, _err_residual = numpy.nan, numpy.nan, numpy.nan, numpy.nan
+
+            _return_dict = {}
+            _return_dict["kd"]          = _kd
+            _return_dict["std"]         = _err_kd
+            _return_dict["residual"]          = _residual
+            _return_dict["std_residual"]         = _err_residual
+            _return_dict["len_ydata"]   =  len(ydata)
+
 
         return _return_dict
 
