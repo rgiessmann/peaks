@@ -1,0 +1,142 @@
+# coding: utf-8
+
+import logging
+
+# In[1]:
+# -------------------------------- #
+### set plotting options
+#get_ipython().magic(u'matplotlib Agg')
+# -------------------------------- #
+
+## SELECT YOUR LOGGING LEVEL ##
+_logging_level = "DEBUG"
+#_logging_level = "INFO"
+#_logging_level = "WARNING"
+
+
+#_logging_level = "CRITICAL"
+## ------------------------  ##
+import logging
+_level = eval("logging."+_logging_level)
+logging.basicConfig(level=_level)
+logger = logging.getLogger(__name__)
+
+
+# In[2]:
+# -------------------------------- #
+## import code for data processing
+import peaks.footprint
+footprint = peaks.footprint.Footprinter() 
+# -------------------------------- #
+
+
+# In[3]:
+# -------------------------------- #
+### Import metadata for 'Peak Scanner 2' output
+trace_list = footprint.get_data("./input_traces.csv")
+# -------------------------------- #
+
+
+# In[21]:
+# -------------------------------- #
+### Set options
+## accepted_offset: peaks are clustered, if their size (=bp) lies within this difference (in bp)
+## factor_method: if "num" look for optimal factor (free-floating), if "peak" find a footprinting-insensitive peak
+## weight_smaller/weight_bigger: importance of misfit peaks which are smaller / bigger than reference peaks
+## relative_mode: if "True" determine the importance of misfit peaks due to their relative size compared to the reference peak, if "False" consider absolute difference (in AU)
+## from_bp/ to_bp: peaks in this interval of sizes (=bp) shall be considered for analysis.
+
+
+_accepted_offset = 0.3
+_factor_method   = "num"
+_weight_smaller  = 1
+_weight_bigger   = 1
+_relative_mode   = False
+_from_bp         = float("-inf")
+_to_bp           = float("+inf")
+_normalize_to    = None
+_how_many_peaks_necessary = -1
+
+### Generate the reference trace
+ref = footprint.generate_averaged_negative_control(trace_list,accepted_offset=_accepted_offset,factor_method=_factor_method, weight_smaller=0.5, weight_bigger=0.5, relative_mode=_relative_mode, from_bp=_from_bp, to_bp=_to_bp, normalize_to=None, how_many_peaks_necessary=_how_many_peaks_necessary)
+# -------------------------------- #
+
+
+for trace in [ref]+trace_list:
+    footprint.prune_tracepeaks_to_peaks_within_bp_limits(trace, from_bp=_from_bp, \
+                                         to_bp=_to_bp)
+
+
+# In[22]:
+# -------------------------------- #
+footprint.cluster_peaks(ref,trace_list,accepted_offset=_accepted_offset)
+
+#df = footprint.check_which_peaks_to_optimize(ref, trace_list, weight_smaller=_weight_smaller, weight_bigger=_weight_bigger, relative_mode=_relative_mode, from_bp=_from_bp, to_bp=_to_bp)
+#df.to_csv("check_peaks.csv")
+
+# In[22]:
+# -------------------------------- #
+for trace in trace_list:
+    footprint.prune_tracepeaks_to_peaks_present_in_other_traces(trace, trace_list,\
+                                         how_many=_how_many_peaks_necessary)
+# -------------------------------- #
+
+
+
+
+# In[30]:
+# -------------------------------- #
+#footprint.fit_all_traces_to_one(ref, trace_list, factor_method="num",  weight_smaller=_weight_smaller, weight_bigger=_weight_bigger, relative_mode=_relative_mode, from_bp=_from_bp, to_bp=_to_bp)
+# -------------------------------- #
+
+
+
+# -------------------------------- #
+trace_list_plus = [ref] + trace_list
+footprint.tracelist_to_csv(trace_list_plus, "check-reproducibility-peakheights.csv")
+# -------------------------------- #
+
+
+
+# -------------------------------- #
+import pandas
+import itertools
+import statsmodels.api as sm
+
+df = pandas.read_csv("check-reproducibility-peakheights.csv")
+
+cols_rel = [col for col in df.columns if ")/" in col]
+cols_abs = [col for col in df.columns if not "/" in col and "(" in col and "-" in col and not ".fsa" in col]
+cols_fsa = [col for col in df.columns if ".fsa" in col]
+
+logger.info(cols_fsa)
+
+corr = df[cols_fsa].corr()
+logger.info(corr)
+corr.to_csv("check-reproducibility-correlations.csv")
+
+result_storage = {}
+for _1, _2 in itertools.combinations(cols_fsa, r=2):
+    print([_1,_2])
+    res = sm.formula.ols("Q('{}') ~ 1 + Q('{}')".format(_1,_2), df ).fit()
+    object = pandas.DataFrame()
+
+    object["coef"]    = res.params
+    object["std err"] = res.bse
+    object["P>|t|"]   = res.pvalues
+    object["r2"]      = res.rsquared
+    object["r2_adj"]  = res.rsquared_adj
+    object.index = [i if i=="Intercept" else "x" for i in object.index]
+    result_storage.update( { (_1, _2) : object } )
+    
+panel = pandas.Panel(result_storage)
+panel.to_frame().to_csv("check-reproducibility-regressions.csv")
+
+#df[cols_fsa].plot(marker="o")
+#df[cols_abs].plot(marker="o")
+#df[cols_rel].plot(marker="o")
+#df[cols_fsa].rank()
+#df[cols_fsa].rank().corr()
+# -------------------------------- #
+
+
