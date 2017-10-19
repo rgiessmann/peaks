@@ -1209,7 +1209,7 @@ class Footprinter():
         xdata, ydata = self.generate_xdata_ydata(ref,trace_list,cluster)
         ixy = list(enumerate(zip(xdata,ydata)))
         xy = list( [(x,y) for i,(x,y) in ixy if i not in excluded_points] )
-        print xy
+        print(xy)
         if len(xy) > 0:
             xdata, ydata = zip(*list(xy))
         else:
