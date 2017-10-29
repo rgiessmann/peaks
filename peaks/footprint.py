@@ -107,7 +107,10 @@ class Footprinter():
             w.writerow([row[1],row[0],"?","?","?"])
         return storage_traces
 
-    def get_data(self, config_file="input_traces.csv"):
+    def get_raw_data(self, config_file="input_traces.csv", peak_format="raw"):
+        return self.get_data(config_file, peak_format)
+
+    def get_data(self, config_file="input_traces.csv", peak_format="analyzed"):
         """Reads data from read_filelist, and returns an object containing all read
         information.
 
@@ -141,7 +144,10 @@ class Footprinter():
                 csv_reader = csv.reader(f)
                 header = next(csv_reader)
                 index = Index()
-                index.peak_height = header.index("Height")
+                if peak_format == "analyzed":
+                    index.peak_height = header.index("Height")
+                elif peak_format == "raw":
+                    index.peak_height = header.index("Raw Height")
                 index.size_bp = header.index("Size")
                 index.file_name = header.index('Sample File Name')
 

@@ -1,0 +1,204 @@
+# coding: utf-8
+
+# In[1]:
+# -------------------------------- #
+### set plotting options
+get_ipython().magic(u'matplotlib')
+# -------------------------------- #
+
+
+## SELECT YOUR LOGGING LEVEL ##
+_logging_level = "DEBUG"
+#_logging_level = "INFO"
+#_logging_level = "WARNING"
+
+
+#_logging_level = "CRITICAL"
+## ------------------------  ##
+import logging
+_level = eval("logging."+_logging_level)
+logging.basicConfig(level=_level)
+
+
+
+
+# In[2]:
+# -------------------------------- #
+## import code for data processing
+import peaks.footprint
+footprint = peaks.footprint.Footprinter()
+# -------------------------------- #
+
+
+# In[20]:
+# -------------------------------- #
+### Import data of 'Peak Scanner 2'-Output and input_trace-file
+trace_list = footprint.get_raw_data("input_traces.csv")
+# -------------------------------- #
+
+
+# In[21]:
+# -------------------------------- #
+### Set options
+## accepted_offset: peaks are clustered, if their size (=bp) lies within this difference (in bp)
+## factor_method: if "num" look for optimal factor (free-floating), if "peak" find a footprinting-insensitive peak
+## weight_smaller/weight_bigger: importance of misfit peaks which are smaller / bigger than reference peaks
+## relative_mode: if "True" determine the importance of misfit peaks due to their relative size compared to the reference peak, if "False" consider absolute difference (in AU)
+## from_bp/ to_bp: peaks in this interval of sizes (=bp) shall be considered for analysis.
+
+
+_accepted_offset = 0.3
+_factor_method   = "num"
+_weight_smaller  = .5
+_weight_bigger   = .5
+_relative_mode   = True
+_from_bp         = float("-inf")
+_to_bp           = float("+inf")
+_normalize_to    = 1000
+_how_many_peaks_necessary = 1 ## set to -1 to allow only peaks which are found in ALL conc=0 traces
+_clean_all_traces_for_necessary_peak_number = False ## set to True to clean up ALL footprinting traces according to _how_many_peaks_necessary
+
+### Generate the reference trace
+ref = footprint.generate_averaged_negative_control(trace_list,accepted_offset=_accepted_offset,factor_method=_factor_method, weight_smaller=_weight_smaller, weight_bigger=_weight_bigger, relative_mode=_relative_mode, from_bp=_from_bp, to_bp=_to_bp, normalize_to=_normalize_to, how_many_peaks_necessary=_how_many_peaks_necessary)
+# -------------------------------- #
+
+if _clean_all_traces_for_necessary_peak_number == False:
+    pass
+else:
+    for trace in trace_list:
+        footprint.prune_tracepeaks_to_peaks_present_in_other_traces(trace, trace_list,\
+                                         how_many=_how_many_peaks_necessary)
+
+
+# In[22]:
+# -------------------------------- #
+footprint.cluster_peaks(ref,trace_list,accepted_offset=_accepted_offset)
+# -------------------------------- #
+
+
+
+# -------------------------------- #
+if _factor_method   == "peak":
+        optimal_factors = footprint.determine_factor_single_peak(ref, trace_list, weight_smaller=_weight_smaller, weight_bigger=_weight_bigger, relative_mode=_relative_mode, from_bp=_from_bp, to_bp=_to_bp)
+elif _factor_method  == "num":
+        optimal_factors = footprint.determine_factor_numerically(ref, trace_list, weight_smaller=_weight_smaller, weight_bigger=_weight_bigger, relative_mode=_relative_mode, from_bp=_from_bp, to_bp=_to_bp)
+
+
+### Correct traces with optimal factors
+for index, null in enumerate(trace_list):
+    footprint.correct_peaks_with_factor(trace_list[index],optimal_factors[index])
+    print("file: {:30.30} --> factor: {:4.2f}".format(trace_list[index].file_name, optimal_factors[index]))
+# -------------------------------- #
+
+
+##     Define sequence blocks     ##
+# -------------------------------- #
+footprint.unite_peaks_to_one(ref,trace_list,(20,21,22))
+# -------------------------------- #
+
+
+
+# In[15]:
+# -------------------------------- #
+### Calculate fractional occupancy for all footprinted peaks, set "free" ligand concentration to total ligand concentration
+footprint.mark_footprinted_peaks(ref, trace_list, threshold=0.01, mark_all=True)
+footprint.add_fractional_occupancies(ref,trace_list)
+for trace in trace_list:
+    Lfree = footprint.calculate_free_ligand_concentration(ref,trace,mode="Ltot")
+    trace.Lfree = Lfree
+    del(Lfree)
+    print("file: {:30.30} : Ltot: {:5.2f} , Lfree_conc: {:5.2f}".format(trace.file_name, trace.Ltot_conc, trace.Lfree))
+# -------------------------------- #
+
+
+# In[16]:
+# -------------------------------- #
+### Calculate K_d by fitting  fractional_occupancy = L/(L + K_d) to data
+kd_matrix = footprint.fit_data_determine_kd(ref, trace_list)
+# -------------------------------- #
+
+
+# In[17]:
+# -------------------------------- #
+### Draw a plot for every cluster
+!mkdir figures
+for cluster in [ref_peak.cluster for ref_peak in ref.peaks]:
+    fig, ax = footprint.plot_data(ref, trace_list, cluster, kd_matrix, with_point_numbers=True, no_show=True)
+    filename = "figures/plot-cluster{}.png".format(cluster)
+    fig.savefig(filename)
+    pass
+# -------------------------------- #
+
+
+# -------------------------------- #
+### Draw a plot for a specific cluster (REMOVE HASHTAGS TO ACTIVATE)
+#cluster = 1
+#footprint.plot_data(ref, trace_list, cluster, kd_matrix)
+# -------------------------------- #
+
+
+
+# In[28]:
+# -------------------------------- #
+### Save K_d-Matrix to filename
+kd_df = footprint.kdmatrix_to_df(kd_matrix)
+kd_df_out = footprint.kdmatrix_df_add_bp(kd_df, ref)
+kd_df_out.to_csv("kd-matrix.csv")
+### Save quality characteristics
+footprint.save_quality_characteristics(ref, trace_list, kd_matrix)
+# -------------------------------- #
+
+
+
+
+
+
+# -------------------------------- #
+### Draw a plot and determine KD with excluded points
+##
+cluster = 1
+excluded_points = [0,1,2]
+##
+##
+kd_matrix = []
+_result_dict = footprint.fit_data_for_one_cluster_kd(ref, trace_list, cluster=cluster, excluded_points=excluded_points)
+footprint.append_to_kdmatrix(kd_matrix, _result_dict, cluster, trace_list)
+fig, ax = footprint.plot_data(ref, trace_list, cluster, kd_matrix, with_point_numbers=True, no_show=True, excluded_points=excluded_points)
+filename = "figures/plot-cluster{}.excluded{}.png".format(cluster, excluded_points)
+fig.savefig(filename)
+footprint.save_kd(kd_matrix, filename="kd-matrix-with-some-points-excluded.csv")
+footprint.save_quality_characteristics(ref, trace_list, kd_matrix, filename="quality-characteristics-with-some-points-excluded.csv")
+##
+# -------------------------------- #
+
+
+
+## NOT WORKING YET ##
+
+# -------------------------------- #
+### Draw a plot and determine KD with excluded points and a residual term
+##
+#cluster = 1
+#excluded_points = [0,1,2]
+##
+##
+#kd_matrix = []
+#_result_dict = footprint.fit_data_for_one_cluster_kd(ref, trace_list, cluster=cluster, excluded_points=excluded_points, method="residual")
+#footprint.append_to_kdmatrix(kd_matrix, _result_dict, cluster, trace_list)
+#fig, ax = footprint.plot_data(ref, trace_list, cluster, kd_matrix, with_point_numbers=True, no_show=True, excluded_points=excluded_points)
+#filename = "figures/plot-cluster{}.excluded{}.png".format(cluster, excluded_points)
+#fig.savefig(filename)
+#footprint.save_kd(kd_matrix, filename="kd-matrix-with-some-points-excluded.csv")
+#footprint.save_quality_characteristics(ref, trace_list, kd_matrix, filename="quality-characteristics-with-some-points-excluded.csv")
+##
+# -------------------------------- #
+
+## ABOVE: NOT WORKING YET ##
+
+
+
+# In[28]:
+# -------------------------------- #
+### Draw an overview plot for all peaks; limit plot to x or y by setting xlim or ylim
+#footprint.plot_peakscan(ref,[ref], xlim=(0,200), ylim=(0,600))
+# -------------------------------- #
