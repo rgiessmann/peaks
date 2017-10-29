@@ -12,7 +12,7 @@ import numpy as np
 import pandas
 import csv
 
-import footprint
+import peaks.footprint as footprint
 footprinter = footprint.Footprinter()
 
 
@@ -49,8 +49,8 @@ def get_data(kdmatrix_filename, inputtraces_filename):
     sample_files = read_sample_traces(inputtraces_filename)
     trace_list = create_traces_and_peaks_with_noise(sample_files, ref_trace, kdvalues)
     return trace_list
-    
-    
+
+
 def generate_ref_trace(kdmatrix_filename):
     kdmatrix = read_kdmatrix(kdmatrix_filename)
     kdvalues = get_kd_values(kdmatrix)
@@ -60,14 +60,14 @@ def generate_ref_trace(kdmatrix_filename):
 def read_kdmatrix(filename_kdmatrix):
     matrix = pandas.read_csv(filename_kdmatrix)
     return matrix
-    
+
 def get_kd_values(matrix):
     kd_series = matrix["KD mean"]
     return kd_series
-    
+
 def generate_averaged_negative_control(kd_series):
     how_many_peaks = len(kd_series)
-    
+
     ref = footprint.Trace(file_name = "ref", dye_color = "B", Ltot_conc = 0, Rtot_conc = 0, peaks=[])
 
     for i in range(how_many_peaks):
@@ -75,21 +75,21 @@ def generate_averaged_negative_control(kd_series):
         peak_bp = i
         ref.peaks.append(footprint.Peak(peak_bp, peak_height))
     return ref
-    
+
 def generate_sample_traces(filename_inputtraces, ref):
     ## NONFUNCTIONAL
-    
+
     trace_list = []
-    
+
     sample_files = read_sample_traces(filename_inputtraces)
-    
+
     for entry in sample_files:
         entry[NAME_sample_id]
-        
-        
-    
+
+
+
     return trace_list
-    
+
 def read_sample_traces(filename_inputtraces):
     df = pandas.DataFrame.from_csv(filename_inputtraces)
     sample_files = []
@@ -101,16 +101,16 @@ def read_sample_traces(filename_inputtraces):
 
 def write_out_sample_traces(filename_inputtraces, trace_list):
     ## NONFUNCTIONAL
-    
+
     sample_files = read_sample_traces(filename_inputtraces)
-    
+
     all_files = [entry[NAME_sample_file] for entry in sample_files]
-    
+
     for f in all_files:
         pass
-        
-        
-    
+
+
+
 def apply_noise_peakheight(height):
     if NOISE_PEAK_ABSOLUTE_SD > 0:
         absolute_noise = np.random.normal(loc=NOISE_PEAK_ABSOLUTE_LOC, scale=NOISE_PEAK_ABSOLUTE_SD)
@@ -126,39 +126,39 @@ def apply_noise_peakheight(height):
 
     if height < 0:
         height = 0
-    
+
     return height
-    
+
 def give_footprinted_peak_height(ref_height, lconc, kd_value):
     correct_height = ref_height * (1 - lconc/(lconc+kd_value))
     return correct_height
-        
-def create_traces_and_peaks_with_noise(sample_files, ref, kd_series): 
-    
+
+def create_traces_and_peaks_with_noise(sample_files, ref, kd_series):
+
     trace_list = []
-    
+
     for data in sample_files:
-        
+
         filename = data["Sample File Name"]
         dye = data["Dye"]
         ltot = data["Ltot"]
         rtot = data["Rtot"]
-        
+
         trace_list.append(footprint.Trace(file_name = filename, dye_color = dye, Ltot_conc = ltot, Rtot_conc = rtot, peaks=[]))
-    
+
         for ref_peak, kd_value in zip(ref.peaks, kd_series):
             if is_footprint(kd_value):
                 peak_height = give_footprinted_peak_height(ref_peak.peak_height, ltot, kd_value)
             else:
                 peak_height = ref_peak.peak_height
- 
+
             peak_height = apply_noise_peakheight(peak_height)
             peak_bp     = ref_peak.size_bp
 
             trace_list[-1].peaks.append(footprint.Peak(peak_bp, peak_height))
-        
+
     return trace_list
-    
+
 
 def is_footprint(kd_value):
     foo=False
@@ -182,9 +182,9 @@ def analyze_success(kd_values_target, kd_matrix_found):
     success_list = []
     difference_list = []
     sd_list = []
-    
+
     for expected, found in zip(kd_values_target, kd_matrix_found):
-        
+
         if not is_footprint(expected):
             expect_list.append(False) ## expect: negative
         else:
@@ -194,16 +194,16 @@ def analyze_success(kd_values_target, kd_matrix_found):
             found_list.append(False) ## found: definitely negative
         else:
             found_list.append(True) ## found: positive
- 
+
         diff_mean = abs(expected - found[1])
-            
+
         if diff_mean < found[2] * COEFFICIENT_SD_ACCEPTED:
             success_list.append(True) ## criterion true: value within uncertainty
         else:
             success_list.append(False) ## value without uncertainy
         difference_list.append(diff_mean)
         sd_list.append(found[2])
-        
+
     big_dict = {
         "expected_kd" : list(kd_values_target),
         "found_kd" : list([found[1] for found in kd_matrix_found]),
@@ -215,19 +215,19 @@ def analyze_success(kd_values_target, kd_matrix_found):
         "difference_of_means"    : difference_list,
 
     }
-    
+
     df = pandas.DataFrame.from_dict(big_dict)
     return df
-       
+
 def return_binary_classification_success(kd_values_target, p_matrix_found, alpha=0.05):
     expect_list = []
     found_list =  []
     success_list = []
     difference_list = []
     sd_list = []
-    
+
     for expected, (i, found) in zip(kd_values_target, p_matrix_found.iterrows() ):
-        
+
         if not is_footprint(expected):
             expect_list.append(False) ## condition negative ( = no footprint)
         else:
@@ -237,8 +237,8 @@ def return_binary_classification_success(kd_values_target, p_matrix_found, alpha
             found_list.append(False) ## prediction negative ( = no footprint)
         else:
             found_list.append(True)  ## prediction positive ( = sensitive)
- 
-        
+
+
     big_dict = {
         "condition" : expect_list,
         "prediction" : found_list,
@@ -319,7 +319,7 @@ def analyze_binary_classification_success(df):
         TNR = float("nan")
 
 
-    ## below cross products right 
+    ## below cross products right
     try:
         LR_plus = TPR / FPR
     except ZeroDivisionError:
@@ -329,7 +329,7 @@ def analyze_binary_classification_success(df):
         LR_minus = FNR / TNR
     except ZeroDivisionError:
         LR_minus = float("nan")
-    
+
     try:
         DOR = LR_plus / LR_minus
     except ZeroDivisionError:
@@ -382,4 +382,3 @@ def analyze_binary_classification_success(df):
 
 
     return result_dict
-        
